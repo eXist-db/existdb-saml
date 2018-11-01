@@ -1,0 +1,204 @@
+===========================================================
+SECURITY ASSESSMENT OF THE EXIST-DB "EXSAML" IMPLEMENTATION
+===========================================================
+
+Author:  Olaf Schreck <olaf@exist-solutions.com>
+Version: 1.0; Wed Jul 13 2017
+Ref:     existdb-saml v1.2.0, Wed Jul 12 2017
+
+Executive Summary:
+
+   Implementation of the SAML standard is considered safe.  Weak points
+   that should be improved are
+   - plaintext representation of server-side secret key in config file
+   - purging of outdated SAML request ids (SP-init only)
+   - test procedures to detect auth misconfig should be implemented
+
+
+Detailed Assessment
+-------------------
+
+1) Sessions between Users and eXist-DB MUST be HTTPS / TLS-encrypted.
+   Plaintext HTTP SHOULD NOT be supported in production environments.
+
+   This is the most basic protection against sniffing of confidential data,
+   Session Hijacking, Password Guessing and Man-in-the-Middle Attacks.
+   Failure to do this will open up the systems against various attacks.
+
+2) All resources that REQUIRE authenticated user privileges MUST be 
+   protected in the controller(s) by code like this AT THE VERY BEGINNING 
+   of the controller code:
+
+   (: if no valid token, redirect to SAML auth :)
+   if (
+       exsaml:is-enabled() and
+       not(exsaml:check-valid-saml-token()) and
+       exsaml:log('info', "controller: no valid token, redirect to SAML auth")
+       )
+       then 
+           <dispatch xmlns="http://exist.sourceforge.net/NS/exist">
+               <redirect url="{exsaml:build-authnreq-redir-url("/exist/apps/" || $exist:controller || "/" || $exist:path)}">
+                   <set-header name="Cache-Control" value="no-cache"/>
+               </redirect>
+           </dispatch>
+   else ...
+
+   Failure to do this correctly will leave resources readable by 
+   unauthenticated users.
+
+3) Token security is the primary security aspect in the SAML authentication. 
+   An eXist-DB SAML token is a string that contains 3 pieces of string data
+   separated by a token-separator character:
+   - the username that this token represents (cleartext)
+   - the expiry date of this token, following XML DateTime conventions 
+     (cleartext)
+   - an HMAC of these 2 data, salted with a secret server-side key
+
+   The token does effectively represent an already authenticated user, so 
+   there are various possible risks.
+
+   a) It MUST NOT be possible to capture this token (which is a session 
+      parameter) eg by packet sniffing.  HTTPS / TLS encryption is MANDATORY 
+      in order to prevent this (see 1).  If an attacker manages to steal and
+      reuse the token, he can effectively bypass ALL authentication.
+
+   b) It MUST NOT be possible to create a valid token at will.  This means 
+      that an attacker MUST NOT be able to know the secret server key to 
+      generate the HMAC.  See 13)
+
+   c) We rely on the eXist-DB crypto lib to generate the HMACs.  I have looked 
+      at that code, which is basically a wrapper around Java crypto/security 
+      classes, so we SHOULD be ok here.  Without a code audit, we don't know.
+
+   d) The token HMAC algorithm is expected to be safe enough (HMAC-SHA-256), 
+      we might even increase this to HMAC-SHA-512 but that will cost some 
+      performance.  The weakest point here is keeping the server secret key 
+      really secret.
+
+4) Authentication control flow is basically this:
+
+   - Some Internet user requests a protected resource.
+   - If she has a valid (or even forged, see 3) token, she is granted access.
+   - Otherwise she gets redirected to the IDP for authentication, following 
+     the SAML2 Web Browser SSO Redirect/POST profile (see 5 below).
+   - After auth, the IDP sends her back to eXist-DB SAML endpoint "/SAML2SP",
+     which will process and verify SAML authentication assertions, see 6 below.
+   - If the SAML assertion sent by the IDP can be validated, she is granted 
+     access to the resource that was initially requested.  Otherwise some 
+     error page will be presented.
+
+5) Redirecting a user to the IDP for authentication: from eXist-DB perspective,
+   this has NO security implications at all, because no confidential data gets 
+   exchanged here.
+
+   SAML specs leave it to the SP (= eXist-DB) to protect the user's relay 
+   state against sniffing, eg using encryption.  This currently not 
+   implemented in exsaml for simplicity, and because 1) mandates HTTPS / TLS 
+   encryption anyway.  No big deal to add upon request.
+
+6) Validating a SAML response from the IDP: this is the beef of the eXist-DB 
+   SAML implementation.  It follows the SAML2 processing rules for SAML 
+   response validation.  In addition, some checks that the SAML specs leave 
+   open are implemented, as well as some precautions against possible DoS 
+   attacks.
+
+   We need to accept IDP-initiated SAML responses from 3rd parties like 
+   Salesforce and we have no way to upfront know the IP addresses of these 
+   IDPs, so basically we allow IDP responses from anywhere on the Internet. 
+   This might effectively allow DoS attacks against the eXist-DB SP.
+
+   For this reason, some simple checks that are not mandatory by SAML specs 
+   get applied first (eg Issuer validation), before computationally more 
+   costly checks such as XML signature are applied.
+
+   Other than that, the eXist-DB SAML implementation follows the processing 
+   rules outlined in [REF_MISSING].
+
+7) On Trust and SSL Certificates: It is important to note that ALL major 
+   security assumptions are based on TLS and X.509 certificates.  We do TLS 
+   sessions so tokens can't get stolen.  We do quite complex calculations 
+   and make assumptions based on X.509 certs for XML signature.  Complex code 
+   tends to expose bugs.
+
+   In my security book, it just DULL to rely on that perceived security ONLY. 
+   Looking at 20+ years of OpenSSL, we have seen stupid and very stupid 
+   coding errors, encoding errors, protocol errors, data format errors, and 
+   several of these leading to remote code execution by an attacker.
+
+   Assuming something is secure because there is TLS and X.509 is a very
+   optimistic approach.  If I were a pen-tester, I'd focus there.
+
+8) Privileged operations, tamperproof SAML request ID management
+
+   For SP-initiated SAML, specs mandate that a (pseudo-)random request id is 
+   generated (to reduce the risk of forged responses or accidentally reused 
+   request ids), and that these request IDs are kept in a tamper-proof 
+   location, and that incoming responses are checked against these IDs.
+
+   For this, a special collection is used that is readable/writeable for the 
+   privileged User "exsaml" ONLY, so that unprivileged users can not lookup 
+   IDs of pending requests in order to craft a forged response.
+
+   This affects SP-initiated SAML only, and is assumed to be safe.
+
+9) Privileged operations, creation of local DB users
+
+   In order to create local DB users on the fly, a privileged DB user account 
+   that has "dba" group rights is required, so this account is very powerful 
+   and needs to be protected.  For simplicity we use the same "exsaml" user as
+   in 8)
+
+   Currently we have a very simple password that is hardcoded in cleartext in 
+   the config-exsaml.xml and repo.xml.tmpl files.  These files MUST NOT be 
+   accessible by unprivileged users, whether they are authenticated or not.
+
+   This is suboptimal, we want to avoid cleartext passwords.  However, this 
+   is a chicken/egg problem, as we need these credentials WHILE doing 
+   authentication WHEN we are not yet authenticated.  So we cannot protect 
+   this with permissions/ACLs.
+
+   Current state is that config-exsaml.xml MUST be protected against 
+   unauthorized access, since this file may reveal the server secret key,
+   see 13)
+
+10) Password Security
+
+   Passwords for the local eXist-DB should not be an issue, since we're
+   authenticating against a 3rd party authn service and don't have to 
+   deal with details.
+
+   [...]
+
+11) Request-ID Lifetimes
+
+   SAML request IDs do not require lifetimes longer than a few minutes.
+   A typical SAML authentication round trip with SP/IDP interaction and 
+   a user typing a password should not take longer than that.  We should
+   be safe to enforce short lifetimes on SAML request IDs.
+
+   Currently there is a cron job missing to purge outdated SAML request IDs.
+
+12) Token Lifetime
+
+   Tokens that eXist-DB issues after SAML authentication are effectively
+   cached, in order to not overload the IDP with parallel requests to 
+   resources like images, CSS, fonts etc.
+
+   We use a configurable value //token/@valid-mins (default 5min) that 
+   defines how long we trust a SAML authentication statement.  Once the
+   token has expired, another SAML round trip is initiated by eXist DB.
+
+
+13) Protection of Server Secret Key
+
+   There is a server-side key that is used for various crypto/HMAC 
+   operations.  It is defined in cleartext in config-exsaml.xml 
+   (//crypto/@hmac-key).
+
+   File config-exsaml.xml MUST be protected against unauthorized access.
+
+   We evaluate the following options to improve this situation:
+   - use keyfile to read password from (instead of cleartext password)
+   - HMAC known text with server secret key (instead of cleartext password)
+   - consider eXist DB setuid features for well-defined privileged operations
+
