@@ -31,6 +31,7 @@ declare %private variable $exsaml:idp-certfile    := data($exsaml:config/idp/@ce
 declare %private variable $exsaml:idp-unsolicited := data($exsaml:config/idp/@accept-unsolicited);
 declare %private variable $exsaml:idp-force-rs    := data($exsaml:config/idp/@force-relaystate);
 declare %private variable $exsaml:idp-verify-issuer := data($exsaml:config/idp/@verify-issuer);
+declare %private variable $exsaml:idp-verify-signature := data($exsaml:config/idp/@verify-signature);
 
 declare %private variable $exsaml:hmac-key := data($exsaml:config/crypto/@hmac-key);
 declare %private variable $exsaml:hmac-alg := data($exsaml:config/crypto/@hmac-alg);
@@ -270,7 +271,9 @@ declare %private function exsaml:validate-saml-response($resp as node()) {
         )
         
         (: verify response signature if present :)
-        else if (boolean($sig) and not(exsaml:verify-response-signature($sig))) then
+        else if ($exsaml:idp-verify-signature = "true" and
+                 boolean($sig) and
+                 not(exsaml:verify-response-signature($sig))) then
             <exsaml:funcret res="-4" msg="failed to verify response signature" />
 
         (: must contain at least one assertion :)
@@ -313,7 +316,9 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
             )
 
             (: verify assertion signature if present :)
-            else if (boolean($sig) and not(exsaml:verify-assertion-signature($assertion))) then
+            else if ($exsaml:idp-verify-signature = "true" and
+                     boolean($sig) and
+                     not(exsaml:verify-assertion-signature($assertion))) then
                 <exsaml:funcret res="-10" msg="failed to verify assertion signature" />
 
             (: maybe verify SubjectConfirmation/@Method :)

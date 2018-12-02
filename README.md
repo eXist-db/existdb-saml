@@ -82,8 +82,10 @@ provided by your IDP peer. If the IDP sends XML signed responses, specify
 To enable IDP-initiated SSO (default off) set `accept-unsolicited` to true. To
 force IDP-initiated clients to a certain URI, specify this URI in
 `force-relaystate`.
-`verify-issuer` can be turned off to disable issuer verification mandated by
-the SAML standard. This was required to deal with a misconfigured IDP peer.
+`idp-verify-issuer` can be turned off to disable issuer verification mandated
+by the SAML standard.
+`idp-verify-signature` can be turned off to disable XML signature verification
+mandated by the SAML standard.
 
 In the `<crypto>` element, set a unique password in `hmac-key`.
 
