@@ -32,6 +32,7 @@ declare %private variable $exsaml:idp-unsolicited := data($exsaml:config/idp/@ac
 declare %private variable $exsaml:idp-force-rs    := data($exsaml:config/idp/@force-relaystate);
 declare %private variable $exsaml:idp-verify-issuer := data($exsaml:config/idp/@verify-issuer);
 declare %private variable $exsaml:idp-verify-signature := data($exsaml:config/idp/@verify-signature);
+declare %private variable $exsaml:idp-verify-reqid := data($exsaml:config/idp/@verify-reqid);
 
 declare %private variable $exsaml:hmac-key := data($exsaml:config/crypto/@hmac-key);
 declare %private variable $exsaml:hmac-alg := data($exsaml:config/crypto/@hmac-alg);
@@ -123,8 +124,9 @@ declare %private function exsaml:build-saml-authnreq() {
     return $req
 };
 
+(: helper function, ensures collection exists before storing :)
 declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string, $instant as xs:string) {
-      let $create-collection := 
+    let $create-collection :=
         if (        
             not(xmldb:collection-available($exsaml:saml-coll-reqid))
         )
@@ -141,13 +143,14 @@ declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string
 
 (: store issued request ids in a collection,  :)
 declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:string) {
-    let $log := exsaml:log("info", "storing SAML request id: " || $id || ", date: " || $instant)
-    return
-        system:as-user(
-                        $exsaml:exsaml-user,
-                        $exsaml:exsaml-pass,
-                        exsaml:store-authnreqid-as-exsol-user($id, $instant)
+    if ($exsaml:idp-verify-reqid = "true") then (
+        let $log := exsaml:log("info", "storing SAML request id: " || $id || ", date: " || $instant)
+        return system:as-user(
+            $exsaml:exsaml-user,
+            $exsaml:exsaml-pass,
+            exsaml:store-authnreqid-as-exsol-user($id, $instant)
         )
+    )
 };
 
 (: ==== FUNCTIONS TO PROCESS AND VALIDATE A SAML AUTHN RESPONSE ==== :)
@@ -332,7 +335,7 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
                     <exsaml:funcret res="-12" msg="assertion no longer valid" data="{$subj-confirm-data/@NotOnOrAfter}"/>
 
             (: verify SubjectConfirmationData/@InResponseTo is present in the SAML response :)
-            else if (not($reqid)) then (
+            else if ($exsaml:idp-verify-reqid = "true" and not($reqid)) then (
                 if ($exsaml:idp-unsolicited) then (
                     <exsaml:funcret res="1" msg="accept unsolicited SAML response"/>
                 )
@@ -342,7 +345,8 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
             )
 
             (: else verify SubjectConfirmationData/@InResponseTo equal to orig AuthnRequest ID :)
-            else if (not(exsaml:check-authnreqid($reqid))) then (
+            else if ($exsaml:idp-verify-reqid = "true" and
+	             not(exsaml:check-authnreqid($reqid))) then (
                     <exsaml:funcret res="-13" msg="did not send this SAML request" data="{$subj-confirm-data/@InResponseTo}"/>
             )
 
