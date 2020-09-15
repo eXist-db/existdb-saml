@@ -113,7 +113,7 @@ available yet. This element should be empty for production use.
 You need to adjust the `controller.xql` of your application like this in order
 to use SAML:
 
-```
+```xquery
 (: import exsaml module :)
 import module namespace exsaml="http://exist-db.org/xquery/exsaml" at 'xmldb:///db/apps/existdb-saml/content/exsaml.xqm';
 
@@ -188,7 +188,7 @@ the request ID stays in the collection forever. For this reason, the
 `clean-reqids.xql` XQuery should be run periodically as a scheduled job to
 purge outdated request IDs. Use something like this in `conf.xml`.
 
-```
+```xml
     <scheduler>
         <job    type="user"
                 name="clean-up-sso-reqids"
