@@ -369,7 +369,7 @@ declare %private function exsaml:check-authnreqid($reqid as xs:string) {
     let $log := exsaml:log("info", "verifying SAML request id: " || $reqid)
     return
         if (system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
-                exists(xmldb:document($exsaml:saml-coll-reqid||"/"||$reqid)) and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))) then
+                exists(doc($exsaml:saml-coll-reqid||"/"||$reqid)) and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))) then
             $reqid
         else ""
 };
