@@ -50,9 +50,10 @@ VIP lounge tickets issued by the IDP, to bypass the SP crowd.
 ## How to use (in technical terms)
 
 Existdb-saml is an application library that can be added through the eXist
-package manager.  You will need to edit its configuration file (eg in eXide)
-and and you will need to modify the `controller.xql` file of your application
-to intercept requests to be authenticated by SAML.
+package manager.  You will need to edit its configuration file (eg in eXide),
+you need to assign a password of your choice to the `exsaml` user and you
+will need to modify the `controller.xql` file of your application to intercept
+requests to be authenticated by SAML.
 
 ### Exchange peering data with IDP
 
@@ -93,7 +94,7 @@ browser, effectively caching authentication credentials. If the token has
 expired, another SAML roundtrip will happen between SP and IDP.
 
 In the `<exsaml-creds>` element, set a password for the privileged `exsaml`
-user.
+user. You also need to assign this password to `exsaml` user, see below.
 
 If you need to store user specific settings such as the preferred language,
 you may want to set `create` to `true` in the `<dynamic-users>` element. By
@@ -107,6 +108,18 @@ to send these attributes.
 
 The `<fake-idp>` element may be used for debugging if no "real" IDP is 
 available yet. This element should be empty for production use.
+
+### Set Password for the `exsaml` DB User
+
+During installation of the existdb-saml package, a special DB user `exsaml`
+gets created if it does not exist. This user will be created with a default
+password (in order to not ship with a blank password).
+
+You need to assign your chosen password as configured in file
+`config-exsaml.xml` (tag `exsaml-creds/@pass`) to the `exsaml` DB user.
+
+In EXide, you could do this by executing
+`sm:passwd('exsaml', 'THE PASSWORD YOU CONFIGURED')`.
 
 ### Edit controller.xql of Your Application
 
