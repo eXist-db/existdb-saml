@@ -1,5 +1,6 @@
-<!-- To disable SAML authentication, set @enabled="false" -->
-<config enabled="false">
+<!-- To enable SAML authentication, set @enabled="true" -->
+<!-- To enable debugging, set @debug="true" -->
+<config enabled="false" debug="false">
 
     <!-- In SAML terminology, the eXist DB is the "service provider" (SP)
          which uses a remote "identity provider" (IDP, eg PingFederate) to
