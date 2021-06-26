@@ -25,7 +25,7 @@ declare %private variable $exsaml:sp-fallback-rs := data($exsaml:config/sp/@fall
 declare %private variable $exsaml:idp-ent  := data($exsaml:config/idp/@entity);
 declare %private variable $exsaml:idp-uri  := data($exsaml:config/idp/@endpoint);
 declare %private variable $exsaml:idp-certfile    := data($exsaml:config/idp/@certfile);
-declare %private variable $exsaml:idp-unsolicited := data($exsaml:config/idp/@accept-unsolicited);
+declare %private variable $exsaml:idp-unsolicited := if (data($exsaml:config/idp/@accept-unsolicited) = "true") then ( true() ) else ( false() );
 declare %private variable $exsaml:idp-force-rs    := data($exsaml:config/idp/@force-relaystate);
 declare %private variable $exsaml:idp-verify-issuer := data($exsaml:config/idp/@verify-issuer);
 
@@ -48,7 +48,8 @@ declare %private variable $exsaml:fake-user   := data($exsaml:config/fake-idp/@u
 declare %private variable $exsaml:fake-group  := data($exsaml:config/fake-idp/@group);
 
 (: SAML specific constants and non-configurable vars :)
-declare %private variable $exsaml:saml-coll-reqid := "/db/apps/existdb-saml/saml-request-ids";
+declare %private variable $exsaml:saml-coll-reqid-name := "saml-request-ids";
+declare %private variable $exsaml:saml-coll-reqid-base := "/db/apps/existdb-saml";
 declare %private variable $exsaml:saml-version   := "2.0";
 declare %private variable $exsaml:status-success := "urn:oasis:names:tc:SAML:2.0:status:Success";
 (: debugging only to simulate failure in fake-idp :)
@@ -129,30 +130,34 @@ declare %private function exsaml:build-saml-authnreq() {
 };
 
 declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string, $instant as xs:string) {
+      let $saml-coll-reqid := $exsaml:saml-coll-reqid-base || "/" || $exsaml:saml-coll-reqid-name
       let $create-collection := 
         if (        
-            not(xmldb:collection-available($exsaml:saml-coll-reqid))
+            not(xmldb:collection-available($saml-coll-reqid))
         )
         then (
-            let $log := exsaml:log("info", "collection " || $exsaml:saml-coll-reqid || " does not exist, attempting to create it")
+            let $log := exsaml:log("info", "collection " || $saml-coll-reqid || " does not exist, attempting to create it")
             return
-                xmldb:create-collection("/db/apps/existdb-saml", "saml-request-ids")
+                xmldb:create-collection($exsaml:saml-coll-reqid-base, $exsaml:saml-coll-reqid-name)
         )
         else ()
     return
-        xmldb:store($exsaml:saml-coll-reqid, $id, <reqid>{$instant}</reqid>)
+        xmldb:store($saml-coll-reqid, $id, <reqid>{$instant}</reqid>)
   
 };
 
-(: store issued request ids in a collection,  :)
+(: store issued request ids in a collection :)
+(: this is pointless if we are configured to accept unsolicited SAML assertions :)
 declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:string) {
-    let $log := exsaml:log("info", "storing SAML request id: " || $id || ", date: " || $instant)
-    return
-        system:as-user(
+    if (not($exsaml:idp-unsolicited)) then (
+        let $log := exsaml:log("info", "storing SAML request id: " || $id || ", date: " || $instant)
+        return
+            system:as-user(
                         $exsaml:exsaml-user,
                         $exsaml:exsaml-pass,
                         exsaml:store-authnreqid-as-exsol-user($id, $instant)
-        )
+            )
+    )
 };
 
 (: ==== FUNCTIONS TO PROCESS AND VALIDATE A SAML AUTHN RESPONSE ==== :)
@@ -373,13 +378,18 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
 };
 
 (: retrieve issued SAML request id and delete if answered :)
+(: this is pointless if we are configured to accept unsolicited SAML assertions :)
 declare %private function exsaml:check-authnreqid($reqid as xs:string) {
-    let $log := exsaml:log("info", "verifying SAML request id: " || $reqid)
-    return
-        if (system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
-                exists(doc($exsaml:saml-coll-reqid||"/"||$reqid)) and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))) then
-            $reqid
-        else ""
+    if (not($exsaml:idp-unsolicited)) then (
+        let $log := exsaml:log("info", "verifying SAML request id: " || $reqid)
+        let $saml-coll-reqid := $exsaml:saml-coll-reqid-base || "/" || $exsaml:saml-coll-reqid-name
+        return
+            if (system:as-user($exsaml:exsaml-user,
+                               $exsaml:exsaml-pass,
+                               exists(doc($saml-coll-reqid||"/"||$reqid))
+                and empty(xmldb:remove($saml-coll-reqid, $reqid)))) 
+            then ( $reqid ) else ( "" )
+    ) else ( $reqid )
 };
 
 (: verify XML signature of a SAML response :)
