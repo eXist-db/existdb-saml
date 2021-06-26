@@ -13,9 +13,6 @@ declare namespace xsi="http://www.w3.org/2001/XMLSchema-instance";
 import module namespace compression="http://exist-db.org/xquery/compression";
 import module namespace crypto="http://expath.org/ns/crypto";
 
-(: other modules :)
-(:import module namespace console="http://exist-db.org/xquery/console";:)
-
 declare variable $exsaml:version := doc("../expath-pkg.xml")/*:package/@version/string();
 
 (: pull config from config-exsaml.xml :)
@@ -640,7 +637,6 @@ declare %private function exsaml:gen-id() {
 
 (: generic log function, returns true for easy use in if constructs :)
 declare function exsaml:log($level as xs:string, $msg as xs:string) {
-(:    let $l := console:log("exsaml: " || $msg):)
     let $l := util:log($level, "exsaml: " || $msg)
     return true()
 };
