@@ -47,6 +47,21 @@ client to some SP resource, as in "give this authenticated user access to
 resource /X". In the sports event analogy these are comparable to sponsored
 VIP lounge tickets issued by the IDP, to bypass the SP crowd.
 
+## What is Supposed to Happen? (the functional view)
+
+* Some client request comes in and gets handed off to controller.xql
+* controller.xql logic notices SAML is enabled and client has no SAML token
+* controller.xql redirects user browser to remote SAML IDP for authentication
+* Remote SAML IDP presents authentication dialog, authenticates the user, and
+  returns an authentication assertion to the eXist SP on endpoint `/SAML2SP`
+* controller.xql handles SAML assertion on endpoint `/SAML2SP` and checks SAML
+  authentication result. If auth successful, insert SAML token into user
+  browser and redirect user browser to the place she intended to go (before
+  getting SAML intercepted). This is SAML "relaystate", arbitrary data,
+  typically a URI.
+* on next request, client will bypass SAML interception because it has a SAML
+  token (this token means "I have successfully authenticated").
+
 ## How to use (in technical terms)
 
 Existdb-saml is an application library that can be added through the eXist
@@ -161,13 +176,13 @@ then (
 (: handle SP endpoint to process SAML response in HTTP POST :)
 else if($exist:path = "/SAML2SP")
 then (
-    let $log := util:log('info', "SAML2SP: processing SAML response")
+    let $log := exsaml:log('info', "SAML2SP: processing SAML response")
     let $status := exsaml:process-saml-response-post()
-    let $log := util:log('debug', "endpoint SAML2SP; status: " || $status/@code)
+    let $log := exsaml:log('info', "endpoint SAML2SP; status: " || $status/@code)
     return
         if ($status/@code >= 0) then
             (: forward to page that was requested by the user :)
-            let $debug := util:log("info", "Auth success - code " || $status/@code || " - relaystate: " || $status/@relaystate)
+            let $debug := exsaml:log("info", "Auth success - code " || $status/@code || " - relaystate: " || $status/@relaystate)
             return
                 <dispatch xmlns="http://exist.sourceforge.net/NS/exist">
                     <redirect url="{$status/@relaystate}"/>
@@ -180,6 +195,21 @@ then (
 else (
     (: your controller code here :)
 )
+```
+
+## Debugging
+
+This module logs to the main eXist logfile `$EXIST_HOME/logs/exist.log`.
+
+The very first debugging operation is looking for exceptions and Java stack
+traces in the main eXist logfile. These often indicate a serious issue that
+may lead to followup errors.
+
+All logging uses an `exsaml:log()` wrapper function, so it is possible to
+"grep" for SAML messages in the exist logfile from the shell like this:
+
+```sh
+grep exsaml: $EXIST_HOME/logs/exist.log | less
 ```
 
 ## Misc
