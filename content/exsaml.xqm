@@ -25,7 +25,7 @@ declare %private variable $exsaml:sp-fallback-rs := data($exsaml:config/sp/@fall
 declare %private variable $exsaml:idp-ent  := data($exsaml:config/idp/@entity);
 declare %private variable $exsaml:idp-uri  := data($exsaml:config/idp/@endpoint);
 declare %private variable $exsaml:idp-certfile    := data($exsaml:config/idp/@certfile);
-declare %private variable $exsaml:idp-unsolicited := if (data($exsaml:config/idp/@accept-unsolicited) = "true") then ( true() ) else ( false() );
+declare %private variable $exsaml:idp-unsolicited := data($exsaml:config/idp/@accept-unsolicited) = "true";
 declare %private variable $exsaml:idp-force-rs    := data($exsaml:config/idp/@force-relaystate);
 declare %private variable $exsaml:idp-verify-issuer := data($exsaml:config/idp/@verify-issuer);
 
@@ -380,7 +380,11 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
 (: retrieve issued SAML request id and delete if answered :)
 (: this is pointless if we are configured to accept unsolicited SAML assertions :)
 declare %private function exsaml:check-authnreqid($reqid as xs:string) {
-    if (not($exsaml:idp-unsolicited)) then (
+    if ($exsaml:idp-unsolicited) then (
+	(: if unsolicited SAML assertions are accepted, simply return reqid :)
+	$reqid
+    ) else (
+        (: else check if reqid is one that we sent :)
         let $log := exsaml:log("info", "verifying SAML request id: " || $reqid)
         let $saml-coll-reqid := $exsaml:saml-coll-reqid-base || "/" || $exsaml:saml-coll-reqid-name
         return
@@ -389,7 +393,7 @@ declare %private function exsaml:check-authnreqid($reqid as xs:string) {
                                exists(doc($saml-coll-reqid||"/"||$reqid))
                 and empty(xmldb:remove($saml-coll-reqid, $reqid)))) 
             then ( $reqid ) else ( "" )
-    ) else ( $reqid )
+    )
 };
 
 (: verify XML signature of a SAML response :)
