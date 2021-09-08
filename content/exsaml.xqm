@@ -149,7 +149,8 @@ declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string
 (: store issued request ids in a collection :)
 (: this is pointless if we are configured to accept unsolicited SAML assertions :)
 declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:string) {
-    if (not($exsaml:idp-unsolicited)) then (
+    if (not($exsaml:idp-unsolicited))
+    then (
         let $log := exsaml:log("info", "storing SAML request id: " || $id || ", date: " || $instant)
         return
             system:as-user(
@@ -158,6 +159,7 @@ declare %private function exsaml:store-authnreqid($id as xs:string, $instant as 
                         exsaml:store-authnreqid-as-exsol-user($id, $instant)
             )
     )
+    else ()
 };
 
 (: ==== FUNCTIONS TO PROCESS AND VALIDATE A SAML AUTHN RESPONSE ==== :)
