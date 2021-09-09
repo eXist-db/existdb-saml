@@ -31,6 +31,7 @@ declare %private variable $exsaml:idp-certfile    := data($exsaml:config/idp/@ce
 declare %private variable $exsaml:idp-unsolicited := data($exsaml:config/idp/@accept-unsolicited);
 declare %private variable $exsaml:idp-force-rs    := data($exsaml:config/idp/@force-relaystate);
 declare %private variable $exsaml:idp-verify-issuer := data($exsaml:config/idp/@verify-issuer);
+declare %private variable $exsaml:idp-verify-xmlsignature := data($exsaml:config/idp/@verify-xmlsignature);
 
 declare %private variable $exsaml:hmac-key := data($exsaml:config/crypto/@hmac-key);
 declare %private variable $exsaml:hmac-alg := data($exsaml:config/crypto/@hmac-alg);
@@ -171,7 +172,7 @@ declare function exsaml:process-saml-response-post() {
                     )
 
     let $debug := exsaml:log("debug", "START SAML RESPONSE ")
-    let $debug := exsaml:log("debug", $resp)
+    let $debug := exsaml:log("debug", fn:serialize($resp))
     let $debug := exsaml:log("debug", "END SAML RESPONSE ")
 
     return
@@ -255,11 +256,11 @@ declare %private function exsaml:validate-saml-response($resp as node()) {
     let $sig := $resp/ds:Signature
     let $result :=
 
-    (: check SAML response status. there are ~20 failure codes, check
-     : for success only, return errmsg in @data
-     :)
-        if (not($resp/samlp:Status/samlp:StatusCode/@Value = $exsaml:status-success)) then
-            <exsaml:funcret res="-3" msg="SAML authentication failed" data="{$resp/samlp:Status/samlp:StatusCode/@Value}"/>
+        (: verify response signature if present :)
+        if ($exsaml:idp-verify-xmlsignature = "true" and boolean($sig) 
+                 and not(exsaml:verify-response-signature($sig))) then (
+            <exsaml:funcret res="-4" msg="failed to verify response signature" />
+	)
 
         (: check that "Issuer" is the expected IDP.  Not stricty required by
            SAML specs, but adds extra protection against forged SAML responses. :)
@@ -269,31 +270,32 @@ declare %private function exsaml:validate-saml-response($resp as node()) {
                 <exsaml:funcret res="-6" msg="{$msg}" data="{$resp/saml:Issuer}"/>
         )
         
-        (: verify response signature if present :)
-(: COMMENTED OUT until crypto-lib issues resolved :)
-(:        else if (boolean($sig) and not(exsaml:verify-response-signature($sig))) then :)
-(:            <exsaml:funcret res="-4" msg="failed to verify response signature" /> :)
+        (: check SAML response status. there are ~20 failure codes, check
+        : for success only, return errmsg in @data
+        :)
+        else if (not($resp//samlp:Status/samlp:StatusCode/@Value = $exsaml:status-success)) then (
+            <exsaml:funcret res="-3" msg="SAML authentication failed" data="{$resp/samlp:Status/samlp:StatusCode/@Value}"/>
+	)
 
         (: must contain at least one assertion :)
         else if (empty($as)) then (
-                <exsaml:funcret res="-5" msg="no assertions present" />
+            <exsaml:funcret res="-5" msg="no assertions present" />
         )
-            (: validate all assertions - only first by now :)
-            else (
-                exsaml:validate-saml-assertion($as)
-            )
+
+	(: validate all assertions - only first by now :)
+	else (
+	    exsaml:validate-saml-assertion($as)
+	)
 
     return $result
 };
 
 (: validate a SAML assertion :)
 declare %private function exsaml:validate-saml-assertion($assertion as item()) {
-    if(empty($assertion))
-    then (
+    if (empty($assertion)) then (
         let $log := exsaml:log("info", "Error: Empty Assertion")
         return
             <exsaml:funcret res="-19" msg="no assertion present" />
-
     )
     else (
         let $log := exsaml:log("info", "validate-saml-assertion: " || fn:serialize($assertion))
@@ -304,29 +306,31 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
 
         let $result :=
 
+            (: verify assertion signature if present :)
+            if ($exsaml:idp-verify-xmlsignature = "true" and boolean($sig) and not(exsaml:verify-assertion-signature($assertion))) then (
+                <exsaml:funcret res="-10" msg="failed to verify assertion signature" />
+	    )
+
             (: check that "Issuer" is the expected IDP.  Not stricty required by
                SAML specs, but adds extra protection against forged SAML responses. :)
 
-            if ($exsaml:idp-verify-issuer = "true" and boolean($assertion/saml:Issuer) and not($assertion/saml:Issuer = $exsaml:idp-ent)) then (
+            else if ($exsaml:idp-verify-issuer = "true" and boolean($assertion/saml:Issuer) and not($assertion/saml:Issuer = $exsaml:idp-ent)) then (
                 let $msg := "SAML assertion from unexpected IDP: " || $assertion/saml:Issuer
                 return
                     <exsaml:funcret res="-18" msg="{$msg}" data="{$assertion/saml:Issuer}"/>
             )
 
-            (: verify assertion signature if present :)
-(: COMMENTED OUT until crypto-lib issues resolved :)
-(:            else if (boolean($sig) and not(exsaml:verify-assertion-signature($assertion))) then :)
-(:                <exsaml:funcret res="-10" msg="failed to verify assertion signature" /> :)
-
             (: maybe verify SubjectConfirmation/@Method :)
 
             (: verify SubjectConfirmationData/@Recipient is SP URL ($sp-uri) :)
-            else if (not($subj-confirm-data/@Recipient = $exsaml:sp-uri)) then
+            else if (not($subj-confirm-data/@Recipient = $exsaml:sp-uri)) then (
                 <exsaml:funcret res="-11" msg="assertion not for me" data="{$subj-confirm-data/@Recipient}"/>
+	    )
 
             (: verify SubjectConfirmationData/@NotOnOrAfter is not later than now :)
-            else if (xs:dateTime(fn:current-dateTime()) >= xs:dateTime($subj-confirm-data/@NotOnOrAfter)) then
-                    <exsaml:funcret res="-12" msg="assertion no longer valid" data="{$subj-confirm-data/@NotOnOrAfter}"/>
+            else if (xs:dateTime(fn:current-dateTime()) >= xs:dateTime($subj-confirm-data/@NotOnOrAfter)) then (
+	        <exsaml:funcret res="-12" msg="assertion no longer valid" data="{$subj-confirm-data/@NotOnOrAfter}"/>
+	    )
 
             (: verify SubjectConfirmationData/@InResponseTo is present in the SAML response :)
             else if (not($reqid)) then (
@@ -340,27 +344,29 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
 
             (: else verify SubjectConfirmationData/@InResponseTo equal to orig AuthnRequest ID :)
             else if (not(exsaml:check-authnreqid($reqid))) then (
-                    <exsaml:funcret res="-13" msg="did not send this SAML request" data="{$subj-confirm-data/@InResponseTo}"/>
+	        <exsaml:funcret res="-13" msg="did not send this SAML request" data="{$subj-confirm-data/@InResponseTo}"/>
             )
 
             (: verify assertions are valid in other respects - none yet :)
 
             (: verify Conditions/@NotBefore is not earlier than now :)
             else if (xs:dateTime(fn:current-dateTime()) < xs:dateTime($conds/@NotBefore)) then (
-                    <exsaml:funcret res="-14" msg="condition not yet valid" data="{$conds/@NotBefore}"/>
+                <exsaml:funcret res="-14" msg="condition not yet valid" data="{$conds/@NotBefore}"/>
             )
 
             (: verify Conditions/@NotOnOrAfter is not later than now :)
             else if (xs:dateTime(fn:current-dateTime()) >= xs:dateTime($conds/@NotOnOrAfter)) then (
-                    <exsaml:funcret res="-15" msg="condition no longer valid" data="{$conds/@NotOnOrAfter}"/>
+                <exsaml:funcret res="-15" msg="condition no longer valid" data="{$conds/@NotOnOrAfter}"/>
             )
 
             (: verify Conditions/AudienceRestriction/Audience is myself ($sp-ent) :)
-            else if (not($conds/saml:AudienceRestriction/saml:Audience = $exsaml:sp-ent)) then
-                    <exsaml:funcret res="-16" msg="audience not for me" data="{$conds/saml:AudienceRestriction/saml:Audience}"/>
+            else if (not($conds/saml:AudienceRestriction/saml:Audience = $exsaml:sp-ent)) then (
+                <exsaml:funcret res="-16" msg="audience not for me" data="{$conds/saml:AudienceRestriction/saml:Audience}"/>
+	    )
 
-            else
+            else (
                 <exsaml:funcret res="0" msg="ok" />
+	    )
 
         return $result
     )
@@ -378,30 +384,40 @@ declare %private function exsaml:check-authnreqid($reqid as xs:string) {
 
 (: verify XML signature of a SAML response :)
 declare %private function exsaml:verify-response-signature($resp as item()) {
-    let $log  := exsaml:log("debug", "verify-response-signature: " || $resp)
+    let $log  := exsaml:log("debug", "verify-response-signature: " || fn:serialize($resp))
+    let $key-embedded := boolean($resp/saml:Assertion/ds:Signature/ds:KeyInfo)
     let $res :=
-        (: if $idp-certfile is configured, use that to validate XML signature :)
-        if ($exsaml:idp-certfile != "") then (
-(:            crypto:validate-signature-by-certfile($resp, $exsaml:idp-certfile):)
+        if ($key-embedded) then (
+            let $log  := exsaml:log("info", "signature contains KeyInfo")
+            return crypto:validate-signature($resp)
         )
         else (
-            let $log  := exsaml:log("info", "cert to verify response signature is missing - could not verify signature! ")
-            return
-                false()
+	    (: if $idp-certfile is configured, use that to validate XML signature :)
+            if ($exsaml:idp-certfile != "") then (
+                let $log  := exsaml:log("info", "no KeyInfo, validate signature using cert " || $exsaml:idp-certfile)
+                return
+                    crypto:validate-signature-by-certfile($resp, $exsaml:idp-certfile)
+            )
+            else (
+                let $log  := exsaml:log("info", "cert to verify response signature is missing - could not verify signature!")
+                return
+                    false()
+            )
         )
     return $res
 };
 
 (: verify XML signature of a SAML assertion :)
 declare %private function exsaml:verify-assertion-signature($assertion as item()) {
-    let $log  := exsaml:log("debug", "verify-assertion-signature " || $assertion)
+    let $log  := exsaml:log("debug", "verify-assertion-signature " || fn:serialize($assertion))
+
     let $res :=
         (: if $idp-certfile is configured, use that to validate XML signature :)
         if ($exsaml:idp-certfile != "") then (
-(:            crypto:validate-signature-by-certfile($assertion, $exsaml:idp-certfile):)
+            crypto:validate-signature-by-certfile($assertion, $exsaml:idp-certfile)
         )
         else (
-            let $log  := exsaml:log("info", "cert to verify assertion signature is missing - could not verify signature! ")
+            let $log  := exsaml:log("info", "cert to verify assertion signature is missing - could not verify signature!")
             return
                 false()
         )
