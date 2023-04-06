@@ -181,6 +181,9 @@ declare function exsaml:process-saml-response-post() {
             )
             else (
                 try {
+    (: for exist >= 5.3.0 uncomment the line below to work around a change
+       in fn:parse-xml-fragment() :)
+    let $resp := $resp/samlp:Response
     let $res  := exsaml:validate-saml-response($resp)
                     return
                         if($res/@res < 0)
@@ -221,6 +224,7 @@ declare function exsaml:process-saml-response-post() {
             return element { "group" } { $i }
         }
     }
+    let $log := util:log("debug", "auth: " || fn:serialize($auth))
     (: create SAML user if not exists yet :)
     let $u :=
         if ($exsaml:create-user = "true" and $auth/@code >= "0") then
@@ -258,7 +262,7 @@ declare %private function exsaml:validate-saml-response($resp as node()) {
     (: check SAML response status. there are ~20 failure codes, check
      : for success only, return errmsg in @data
      :)
-        if (not($resp/samlp:Status/samlp:StatusCode/@Value = $exsaml:status-success)) then
+        if ($resp/samlp:Status/samlp:StatusCode/@Value ne $exsaml:status-success) then
             <exsaml:funcret res="-3" msg="SAML authentication failed" data="{$resp/samlp:Status/samlp:StatusCode/@Value}"/>
 
         (: check that "Issuer" is the expected IDP.  Not stricty required by
