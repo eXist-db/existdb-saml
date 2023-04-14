@@ -41,14 +41,14 @@ declare %private variable $exsaml:token-separator := "=";
 (: needed for priv escalation :)
 declare %private variable $exsaml:exsaml-user   := data($exsaml:config/exsaml-creds/@username);
 declare %private variable $exsaml:exsaml-pass   := data($exsaml:config/exsaml-creds/@pass);
-(: needed if user accounts should be created on the fly :)
-declare %private variable $exsaml:create-user   := data($exsaml:config/dynamic-users/@create);
-declare %private variable $exsaml:user-group    := data($exsaml:config/dynamic-users/@group);
 (: only used for fake IDP response testing :)
 declare %private variable $exsaml:minutes-valid := data($exsaml:config/fake-idp/@minutes-valid);
 declare %private variable $exsaml:fake-result := data($exsaml:config/fake-idp/@result);
 declare %private variable $exsaml:fake-user   := data($exsaml:config/fake-idp/@user);
 declare %private variable $exsaml:fake-group  := data($exsaml:config/fake-idp/@group);
+(: SSO users configuration :)
+declare %private variable $exsaml:sso-create-users  := data($exsaml:config/sso-users/@create-users);
+declare %private variable $exsaml:sso-userfile      := data($exsaml:config/sso-users/@data);
 
 (: SAML specific constants and non-configurable vars :)
 declare %private variable $exsaml:saml-coll-reqid := "/db/apps/existdb-saml/saml-request-ids";
@@ -87,8 +87,8 @@ declare function exsaml:info() {
  : @param relaystate this is the path component of the resource that the user
  :  initially requested, so that she gets sent there after SAML auth.
  :)
-declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) {
-    let $log := exsaml:log("info", "building SAML auth request redir-url; relaystate: " || $relaystate)
+declare function exsaml:build-authnreq-redir-url($relayurl as xs:string, $realm as xs:string) {
+    let $log := exsaml:log("info", "building SAML auth request redir-url; relayurl: " || $relayurl || " - realm: " || $realm)
     let $req := exsaml:build-saml-authnreq()
     let $log := exsaml:log("debug", "build-authnreq-redir-url; req: " || $req)
 
@@ -103,6 +103,7 @@ declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) {
     let $urlenc := xmldb:encode($zip)
 
     let $log := exsaml:log("debug", "build-authnreq-redir-url; urlenc: " || $urlenc)
+    let $relaystate := $realm || "#" || $relayurl
 
     return $exsaml:idp-uri || "?SAMLRequest=" || $urlenc || "&amp;RelayState=" || xmldb:encode($relaystate)
 };
@@ -181,6 +182,9 @@ declare function exsaml:process-saml-response-post() {
             )
             else (
                 try {
+    (: for exist >= 5.3.0 uncomment the line below to work around a change
+       in fn:parse-xml-fragment() :)
+    let $resp := $resp/samlp:Response
     let $res  := exsaml:validate-saml-response($resp)
                     return
                         if($res/@res < 0)
@@ -188,7 +192,12 @@ declare function exsaml:process-saml-response-post() {
                                 $res
                             )
                             else (
-    let $rsin := request:get-parameter("RelayState", "")
+    (: old format: RelayState is the return URL :)
+    (: new format: RelayState is auth realm SEPARATOR return URL :)
+    (: split RelayState string, compat old format :)
+    let $rsseq := fn:tokenize(request:get-parameter("RelayState", ""), "#")
+    let $realm := if ($rsseq[2] eq "") then ( "default" ) else ( $rsseq[1] )
+    let $rsin  := if ($rsseq[2] eq "") then ( $rsseq[1] ) else ( $rsseq[2] )
     let $rsout :=
         (: if we accept IDP-initiated SAML *and* use a forced landing page :)
         if ($exsaml:idp-unsolicited and $exsaml:idp-force-rs != "") then (
@@ -214,6 +223,7 @@ declare function exsaml:process-saml-response-post() {
         attribute code   { $res/@res },
         attribute msg    { $res/@msg },
         attribute nameid { $resp/saml:Assertion/saml:Subject/saml:NameID },
+        attribute realm  { $realm },
         attribute relaystate { $rsout },
         attribute authndate  { $resp/saml:Assertion/@IssueInstant },
         element { "groups" } {
@@ -221,10 +231,11 @@ declare function exsaml:process-saml-response-post() {
             return element { "group" } { $i }
         }
     }
+    let $log := util:log("debug", "auth: " || fn:serialize($auth))
     (: create SAML user if not exists yet :)
     let $u :=
-        if ($exsaml:create-user = "true" and $auth/@code >= "0") then
-            exsaml:ensure-saml-user($auth/@nameid)
+        if ($exsaml:sso-create-users = "true" and $auth/@code >= "0") then
+            exsaml:ensure-saml-user($auth/@nameid, $realm)
         else ""
 
     let $pass := exsaml:create-user-password($auth/@nameid)
@@ -258,7 +269,7 @@ declare %private function exsaml:validate-saml-response($resp as node()) {
     (: check SAML response status. there are ~20 failure codes, check
      : for success only, return errmsg in @data
      :)
-        if (not($resp/samlp:Status/samlp:StatusCode/@Value = $exsaml:status-success)) then
+        if ($resp/samlp:Status/samlp:StatusCode/@Value ne $exsaml:status-success) then
             <exsaml:funcret res="-3" msg="SAML authentication failed" data="{$resp/samlp:Status/samlp:StatusCode/@Value}"/>
 
         (: check that "Issuer" is the expected IDP.  Not stricty required by
@@ -425,16 +436,33 @@ declare %private function exsaml:fetch-saml-attribute-values($attrname as xs:str
    certain username is valid, we have no list of usernames upfront, but
    create them on the fly.  This allows to store per-user preferences and
    settings. :)
-declare %private function exsaml:ensure-saml-user($nameid as xs:string) {
-    let $pass := exsaml:create-user-password($nameid)
+declare %private function exsaml:ensure-saml-user($nameid as xs:string, $realm as xs:string) {
+    let $allusers := doc($exsaml:sso-userfile)/sso-users/user/*[name() = $realm]
+    let $userdata :=
+        if ($allusers[@user=$nameid]) then (
+            $allusers[@user=$nameid]
+        ) else (
+            $allusers[@user='_default']
+        )
 
     return
-        (: run as user exsaml, group dba :)
-        system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
-                       if (not(sm:user-exists($nameid))
-                           and exsaml:log("info", "create new user account " || $nameid || ", group " || $exsaml:user-group)) then
-                           sm:create-account($nameid, $pass, $exsaml:user-group, ())
-                       else ())
+        if (not(sm:user-exists($nameid))) then (
+            let $log := util:log("info", "create new user account " || $nameid || ", group " || data($userdata/@group))
+            let $pass := exsaml:create-user-password($nameid)
+            return
+              system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
+                             sm:create-account($nameid, $pass, data($userdata/@group), data($userdata/groups/group)))
+        ) else (
+            (: user exists, ensure group membership :)
+            let $usergroups := sm:get-user-groups($nameid)
+            for $g in data($userdata/groups/group)
+            return
+                if (not($g = $usergroups)) then (
+                    util:log("info", "add user " || $nameid || "to group " || $g),
+                    system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
+                                   sm:add-group-member($g, $nameid))
+                ) else ()
+        )
 };
 
 (: create user password as HMAC of username :)

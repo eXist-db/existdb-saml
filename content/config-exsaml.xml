@@ -50,18 +50,17 @@
            request IDs that it sent, and that this collection is tamperproof.
            Only this user has access to the reqids collection. -->
     <!--   @username: username of privileged user -->
-    <!--   @username: username of privileged user -->
+    <!--   @group: group name of privileged user -->
     <!--   @pass: plaintext password, WILL GO AWAY -->
     <exsaml-creds username="exsaml" group="exsaml" pass="my other password"/>
 
-    <!-- settings for dynamic user creation -->
+    <!-- settings for configurable user creation -->
     <!-- Since we are using a third party for authentication (SAML IDP), there
          is no need to keep users in the local eXist DB.  These settings may
          be used to create local DB users on the fly, if required. -->
-    <!--   @create: either "true" (create local DB users) or "false" (do not) -->
-    <!--   @group: group membership for created users -->
-    <dynamic-users create="false"/>
-    <!-- dynamic-users create="true" group="sso-user"/ -->
+    <!--   @create-users: either "true" (create local DB users) or "false" (do not) -->
+    <!--   @data: XML data file specifying users and groups -->
+    <sso-users create-users="false" data="/db/apps/existdb-saml/sso-users.xml"/>
 
     <!-- group-attribute -->
     <!-- This defines a SAML attribute name that is used specify group
