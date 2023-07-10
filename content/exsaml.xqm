@@ -171,6 +171,7 @@ declare function exsaml:process-saml-response-post() {
                     fn:parse-xml-fragment($decode-resp)
 
     let $debug := exsaml:log("debug", "START SAML RESPONSE")
+    let $debug := exsaml:log("debug", $saml-resp)
     let $debug := exsaml:log("debug", fn:serialize($resp))
     let $debug := exsaml:log("debug", "END SAML RESPONSE")
 
