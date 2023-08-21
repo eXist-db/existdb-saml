@@ -93,7 +93,7 @@ declare function exsaml:info() {
  : @param relaystate this is the path component of the resource that the user
  :  initially requested, so that she gets sent there after SAML auth.
  :)
-declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) {
+declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) as xs:string {
     let $log := exsaml:log("info", "building SAML auth request redir-url; relaystate: " || $relaystate)
     let $req := exsaml:build-saml-authnreq()
     let $log := exsaml:log("debug", "build-authnreq-redir-url; req: " || $req)
@@ -114,7 +114,7 @@ declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) {
 };
 
 (: build and return SAML AuthnRequest node :)
-declare %private function exsaml:build-saml-authnreq() {
+declare %private function exsaml:build-saml-authnreq() as element(samlp:AuthnRequest) {
     let $id := exsaml:gen-id()
     let $instant := fn:current-dateTime()
     let $store := exsaml:store-authnreqid($id, $instant)
@@ -254,7 +254,7 @@ declare function exsaml:process-saml-response-post() {
 };
 
 (: validate a SAML response message :)
-declare %private function exsaml:validate-saml-response($resp as node()) {
+declare %private function exsaml:validate-saml-response($resp as node()) as element(exsaml:funcret) {
     let $log  := exsaml:log("info", "validate-saml-response")
 
     let $as := $resp/saml:Assertion
@@ -293,8 +293,8 @@ declare %private function exsaml:validate-saml-response($resp as node()) {
 };
 
 (: validate a SAML assertion :)
-declare %private function exsaml:validate-saml-assertion($assertion as item()) {
-    if(empty($assertion))
+declare %private function exsaml:validate-saml-assertion($assertion as item()) as element(exsaml:funcret) {
+    if (empty($assertion))
     then (
         let $log := exsaml:log("info", "Error: Empty Assertion")
         return
@@ -373,7 +373,7 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
 };
 
 (: retrieve issued SAML request id and delete if answered :)
-declare %private function exsaml:check-authnreqid($reqid as xs:string) {
+declare %private function exsaml:check-authnreqid($reqid as xs:string) as xs:string {
     let $log := exsaml:log("info", "verifying SAML request id: " || $reqid)
     return
         if (system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
@@ -383,7 +383,7 @@ declare %private function exsaml:check-authnreqid($reqid as xs:string) {
 };
 
 (: verify XML signature of a SAML response :)
-declare %private function exsaml:verify-response-signature($resp as item()) {
+declare %private function exsaml:verify-response-signature($resp as item()) as xs:boolean {
     let $log  := exsaml:log("debug", "verify-response-signature: " || $resp)
     let $res :=
         (: if $idp-certfile is configured, use that to validate XML signature :)
@@ -399,7 +399,7 @@ declare %private function exsaml:verify-response-signature($resp as item()) {
 };
 
 (: verify XML signature of a SAML assertion :)
-declare %private function exsaml:verify-assertion-signature($assertion as item()) {
+declare %private function exsaml:verify-assertion-signature($assertion as item()) as xs:boolean {
     let $log  := exsaml:log("debug", "verify-assertion-signature " || $assertion)
     let $res :=
         (: if $idp-certfile is configured, use that to validate XML signature :)
@@ -417,7 +417,7 @@ declare %private function exsaml:verify-assertion-signature($assertion as item()
 (: Fetch the named SAML attribute values from a SAML assertion.  This is
    used to get group membership of an authenticated user, which gets passed
    as SAML attribute assertions by the IDP :)
-declare %private function exsaml:fetch-saml-attribute-values($attrname as xs:string, $as as node()) {
+declare %private function exsaml:fetch-saml-attribute-values($attrname as xs:string, $as as node()) as xs:string* {
     let $log := exsaml:log("debug", "fetch-saml-attribute " || $attrname || ", " || fn:serialize($as))
     let $seq :=
         for $a in $as/saml:AttributeStatement/saml:Attribute[@Name=$attrname]/saml:AttributeValue
@@ -458,7 +458,7 @@ declare %private function exsaml:create-user-password($nameid as xs:string) {
  : Check whether a SAML token exists and is valid.  Return boolean.
  : This is called from the controller(s) to check if access should be granted.
  :)
-declare function exsaml:check-valid-saml-token() {
+declare function exsaml:check-valid-saml-token() as xs:boolean {
     let $raw  := session:get-attribute($exsaml:token-name)
     let $log  := exsaml:log("debug", "checking saml token, name: " || $exsaml:token-name || ", value: " || $raw)
 
@@ -481,7 +481,7 @@ declare function exsaml:check-valid-saml-token() {
  : so that it will fail token expiration checks.
  : This is called from the controller(s) upon user logout.
  :)
-declare function exsaml:invalidate-saml-token() {
+declare function exsaml:invalidate-saml-token() as empty-sequence() {
     let $user := sm:id()/sm:id/sm:real/sm:username
     let $tok  := exsaml:build-string-token($user, "1970-01-01T00:00:00")
     let $hmac := exsaml:hmac-tokval($tok)
@@ -507,7 +507,7 @@ declare %private function exsaml:build-string-token($nameid as xs:string, $valid
 };
 
 (: build and HMAC token and stuff into browser session :)
-declare %private function exsaml:set-saml-token($nameid as xs:string, $authndate as xs:string) {
+declare %private function exsaml:set-saml-token($nameid as xs:string, $authndate as xs:string) as empty-sequence() {
     let $validto := xs:dateTime($authndate) + xs:dayTimeDuration("PT" || $exsaml:token-minutes || "M")
 
     let $tok := exsaml:build-string-token($nameid, $validto)
@@ -520,7 +520,7 @@ declare %private function exsaml:set-saml-token($nameid as xs:string, $authndate
 (: ==== FUNCTIONS TO FAKE A SAML IDP (testing only) ==== :)
 
 (: process SAML AuthnRequest, return SAML Response via POST :)
-declare function exsaml:process-saml-request() {
+declare function exsaml:process-saml-request() as element(html){
     let $log  := exsaml:log("debug", "process-saml-request")
     let $raw  := request:get-parameter("SAMLRequest", "")
     let $log  := exsaml:log("debug", "process-saml-request; raw: " || $raw)
@@ -537,7 +537,7 @@ declare function exsaml:process-saml-request() {
 };
 
 (: fake SAML IDP response: build response and return via XHTML autosubmit form :)
-declare %private function exsaml:fake-idp-response($req as node(), $rs as xs:string) {
+declare %private function exsaml:fake-idp-response($req as node(), $rs as xs:string) as element(html) {
     let $log := exsaml:log("debug", "fake-idp-response")
     let $resp := exsaml:build-saml-fakeresp($req)
     let $b64resp := util:base64-encode(fn:serialize($resp))
@@ -555,7 +555,7 @@ declare %private function exsaml:fake-idp-response($req as node(), $rs as xs:str
 };
 
 (: return a fake SAML response node :)
-declare %private function exsaml:build-saml-fakeresp($req as node()) {
+declare %private function exsaml:build-saml-fakeresp($req as node()) as element(samlp:Response) {
     let $reqid := $req/@ID
     let $status  :=
         if($exsaml:fake-result = "true") then $exsaml:status-success
@@ -630,13 +630,13 @@ declare %private function exsaml:build-saml-fakeresp($req as node()) {
 
 (: generate a SAML ID :)
 (: which is xs:ID which is xsd:NCName which MUST NOT start with a number :)
-declare %private function exsaml:gen-id() {
+declare %private function exsaml:gen-id() as xs:string {
     let $uuid := util:uuid()
     return "a" || $uuid
 };
 
 (: generic log function, returns true for easy use in if constructs :)
-declare function exsaml:log($level as xs:string, $msg as xs:string) {
+declare function exsaml:log($level as xs:string, $msg as xs:string) as xs:boolean {
 (:    let $l := console:log("exsaml: " || $msg):)
     let $l := util:log($level, "exsaml: " || $msg)
     return true()
