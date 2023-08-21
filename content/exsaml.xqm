@@ -12,6 +12,12 @@ declare namespace xsi="http://www.w3.org/2001/XMLSchema-instance";
 (: additional modules needed for SAML processing :)
 import module namespace compression="http://exist-db.org/xquery/compression";
 import module namespace crypto="http://expath.org/ns/crypto";
+import module namespace request = "http://exist-db.org/xquery/request";
+import module namespace session = "http://exist-db.org/xquery/session";
+import module namespace sm = "http://exist-db.org/xquery/securitymanager";
+import module namespace system = "http://exist-db.org/xquery/system";
+import module namespace util = "http://exist-db.org/xquery/util";
+import module namespace xmldb = "http://exist-db.org/xquery/xmldb";
 
 (: other modules :)
 (:import module namespace console="http://exist-db.org/xquery/console";:)
