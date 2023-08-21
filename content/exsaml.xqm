@@ -146,7 +146,7 @@ declare function exsaml:build-authnreq-redir-url($cid as xs:string, $relaystate 
  : @param $cid An id used for correlating log messages.
  :)
 declare %private function exsaml:build-saml-authnreq($cid as xs:string) as element(samlp:AuthnRequest) {
-    let $reqid := exsaml:gen-id()
+    let $reqid := exsaml:gen-id($cid)
     let $instant := fn:current-dateTime()
     let $store := exsaml:store-authnreqid($cid, $reqid, $instant)
     return
@@ -674,12 +674,12 @@ declare %private function exsaml:build-saml-fakeresp($cid as xs:string, $req as 
     let $validto := $now + xs:dayTimeDuration("PT" || $exsaml:minutes-valid || "M")
     return
 
-        <samlp:Response ID="{exsaml:gen-id()}" InResponseTo="{$reqid}" Version="{$exsaml:saml-version}" IssueInstant="{$now}" Destination="{$exsaml:sp-uri}">
+        <samlp:Response ID="{exsaml:generate-saml-id($cid)}" InResponseTo="{$reqid}" Version="{$exsaml:saml-version}" IssueInstant="{$now}" Destination="{$exsaml:sp-uri}">
             <saml:Issuer>{$exsaml:idp-ent}</saml:Issuer>
             <samlp:Status>
                 <samlp:StatusCode Value="{$status}"/>
             </samlp:Status>
-            <saml:Assertion ID="{exsaml:gen-id()}" Version="{$exsaml:saml-version}" IssueInstant="{$now}">
+            <saml:Assertion ID="{exsaml:generate-saml-id($cid)}" Version="{$exsaml:saml-version}" IssueInstant="{$now}">
                 <saml:Issuer>{$exsaml:idp-ent}</saml:Issuer>
                 <ds:Signature>{$fakesig}</ds:Signature>
                 <saml:Subject>
@@ -693,7 +693,7 @@ declare %private function exsaml:build-saml-fakeresp($cid as xs:string, $req as 
                         <saml:Audience>{$exsaml:sp-ent}</saml:Audience>
                     </saml:AudienceRestriction>
                 </saml:Conditions>
-                <saml:AuthnStatement AuthnInstant="{$now}" SessionIndex="{exsaml:gen-id()}">
+                <saml:AuthnStatement AuthnInstant="{$now}" SessionIndex="{exsaml:generate-saml-id($cid)}">
                     <saml:AuthnContext>
                         <saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef>
                     </saml:AuthnContext>
@@ -710,12 +710,15 @@ declare %private function exsaml:build-saml-fakeresp($cid as xs:string, $req as 
 
 (: ==== UTIL FUNCTIONS ==== :)
 
-(: generate a SAML ID :)
-(: which is xs:ID which is xsd:NCName which MUST NOT start with a number :)
-declare %private function exsaml:gen-id() as xs:string {
-    let $uuid := util:uuid()
-    return
-        "a" || $uuid
+(:~
+ : Generate a SAML ID.
+ :
+ : This is xs:ID which is xsd:NCName which MUST NOT start with a number.
+ :
+ : @param $cid An id used for correlating log messages.
+ :)
+declare %private function exsaml:generate-saml-id($cid as xs:string) as xs:string {
+    "a" || $cid
 };
 
 (: generic log function, returns true for easy use in if constructs :)
