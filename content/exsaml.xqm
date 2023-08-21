@@ -325,7 +325,7 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) a
                 <exsaml:funcret res="-11" msg="assertion not for me" data="{$subj-confirm-data/@Recipient}"/>
 
             (: verify SubjectConfirmationData/@NotOnOrAfter is not later than now :)
-            else if (xs:dateTime(fn:current-dateTime()) >= xs:dateTime($subj-confirm-data/@NotOnOrAfter))
+            else if (xs:dateTime(fn:current-dateTime()) ge xs:dateTime($subj-confirm-data/@NotOnOrAfter))
             then
                 <exsaml:funcret res="-12" msg="assertion no longer valid" data="{$subj-confirm-data/@NotOnOrAfter}"/>
 
@@ -346,12 +346,12 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) a
             (: verify assertions are valid in other respects - none yet :)
 
             (: verify Conditions/@NotBefore is not earlier than now :)
-            else if (xs:dateTime(fn:current-dateTime()) < xs:dateTime($conds/@NotBefore))
+            else if (xs:dateTime(fn:current-dateTime()) lt xs:dateTime($conds/@NotBefore))
             then
                 <exsaml:funcret res="-14" msg="condition not yet valid" data="{$conds/@NotBefore}"/>
 
             (: verify Conditions/@NotOnOrAfter is not later than now :)
-            else if (xs:dateTime(fn:current-dateTime()) >= xs:dateTime($conds/@NotOnOrAfter))
+            else if (xs:dateTime(fn:current-dateTime()) ge xs:dateTime($conds/@NotOnOrAfter))
             then
                 <exsaml:funcret res="-15" msg="condition no longer valid" data="{$conds/@NotOnOrAfter}"/>
 
@@ -411,7 +411,7 @@ declare %private function exsaml:verify-assertion-signature($assertion as item()
 declare %private function exsaml:fetch-saml-attribute-values($attrname as xs:string, $as as node()) as xs:string* {
     let $log := exsaml:log("debug", "fetch-saml-attribute " || $attrname || ", " || fn:serialize($as))
     let $seq :=
-        for $a in $as/saml:AttributeStatement/saml:Attribute[@Name=$attrname]/saml:AttributeValue
+        for $a in $as/saml:AttributeStatement/saml:Attribute[@Name eq $attrname]/saml:AttributeValue
         return $a/text()
     let $log := exsaml:log("debug", "fetch-saml-attribute: " || fn:serialize($seq))
     return
