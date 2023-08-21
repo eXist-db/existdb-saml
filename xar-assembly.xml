@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://expath.org/ns/pkg" name="${package-name}" abbrev="${package-abbrev}" version="${project.version}"
+  spec="1.0">
+  <title>${package-title}</title>
+  <author id="eXist-db">${project.organization.name}</author>
+  <description>${project.description}</description>
+  <website>${project.url}</website>
+  <license>GNU LGPL 2.1</license>
+  <copyright>true</copyright>
+  
+  <type>library</type>
+  
+  <status>stable</status>
+  
+  <tag>${project.artifactId}</tag>
+  
+  <dependency processor="http://exist-db.org" semver-min="${exist.version}"/>
+  <dependency package="http://expath.org/ns/crypto" semver-min="6.0.1"/>
+
+  <target>${package-abbrev}</target>
+
+  <finish>post-install.xq</finish>
+  
+  <!-- includes everything in target, README.md, and LICENSE -->
+  <fileSets>
+    <fileSet>
+      <directory>${project.build.outputDirectory}</directory>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}</directory>
+      <includes>
+        <include>README.md</include>
+      </includes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}</directory>
+      <includes>
+        <include>LICENSE</include>
+      </includes>
+    </fileSet>
+  </fileSets>
+  
+</package>
