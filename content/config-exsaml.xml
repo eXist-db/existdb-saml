@@ -27,7 +27,7 @@
     <!--   @certfile: required for XML signature validation if sig sent by IDP -->
     <!--   @verify-issuer: is a hack to deal with misconfigured IDPs -->
 
-    <idp entity="https://sso.endpoint.org/entity" endpoint="https://sso.endpoint.org/idp/SSO.saml2" accept-unsolicited="false" force-relaystate="" certfile="/usr/local/existdb/exist/cert/sso-prod.crt" verify-issuer="true"/>
+    <idp entity="https://sso.endpoint.org/entity" endpoint="https://sso.endpoint.org/idp/SSO.saml2" accept-unsolicited="false" force-relaystate="false" certfile="/usr/local/existdb/exist/cert/sso-prod.crt" verify-issuer="true"/>
 
     <!-- crypto settings -->
     <!--   @hmac-key: server-side secret key for HMACs -->

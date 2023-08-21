@@ -33,9 +33,9 @@ declare %private variable $exsaml:sp-uri   := data($exsaml:config/sp/@endpoint);
 declare %private variable $exsaml:sp-fallback-rs := data($exsaml:config/sp/@fallback-relaystate);
 declare %private variable $exsaml:idp-ent  := data($exsaml:config/idp/@entity);
 declare %private variable $exsaml:idp-uri  := data($exsaml:config/idp/@endpoint);
-declare %private variable $exsaml:idp-certfile    := data($exsaml:config/idp/@certfile);
+declare %private variable $exsaml:idp-certfile as xs:string? := $exsaml:config/idp/@certfile;
 declare %private variable $exsaml:idp-unsolicited := data($exsaml:config/idp/@accept-unsolicited);
-declare %private variable $exsaml:idp-force-rs    := data($exsaml:config/idp/@force-relaystate);
+declare %private variable $exsaml:idp-force-rs as xs:boolean := $exsaml:config/idp/@force-relaystate eq "true";
 declare %private variable $exsaml:idp-verify-issuer := data($exsaml:config/idp/@verify-issuer);
 
 declare %private variable $exsaml:hmac-key := data($exsaml:config/crypto/@hmac-key);
@@ -238,17 +238,16 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
 
                     else
 
-                        let $rsin := request:get-parameter("RelayState", "")
+                        let $rsin := request:get-parameter("RelayState", ())
                         let $rsout :=
                                 (: if we accept IDP-initiated SAML *and* use a forced landing page :)
-                                if ($exsaml:idp-unsolicited and $exsaml:idp-force-rs != "")
+                                if ($exsaml:idp-unsolicited and $exsaml:idp-force-rs)
                                 then
-                                    let $debug := exsaml:log("debug", $cid, "evaluated to: $exsaml:idp-unsolicited and $exsaml:idp-force-rs != ''")
-                                    let $debug := exsaml:log("debug", $cid, "$exsaml:idp-force-rs is: " || $exsaml:idp-force-rs || " evaluated: " || string-length($exsaml:idp-force-rs))
+                                    let $debug := exsaml:log("debug", $cid, "evaluated to: $exsaml:idp-unsolicited and $exsaml:idp-force-rs = 'true'")
                                     return
                                         $exsaml:idp-force-rs
                                 (: otherwise accept relaystate from the SAML response :)
-                                else if ($rsin != "")
+                                else if (exists($rsin))
                                 then
                                     let $debug := exsaml:log("info", $cid, "Relay State as provided by SSO: " || $rsin)
                                     return
@@ -449,7 +448,7 @@ declare %private function exsaml:verify-response-signature($cid as xs:string, $r
     let $log  := exsaml:log("debug", $cid, "verify-response-signature: " || $resp)
     return
         (: if $idp-certfile is configured, use that to validate XML signature :)
-        if ($exsaml:idp-certfile != "")
+        if (exists($exsaml:idp-certfile))
         then
 (:            crypto:validate-signature-by-certfile($resp, $exsaml:idp-certfile):)
             true()
@@ -471,7 +470,7 @@ declare %private function exsaml:verify-assertion-signature($cid as xs:string, $
     let $log  := exsaml:log("debug", $cid, "verify-assertion-signature: " || $assertion)
     return
         (: if $idp-certfile is configured, use that to validate XML signature :)
-        if ($exsaml:idp-certfile != "")
+        if (exists($exsaml:idp-certfile))
         then
 (:            crypto:validate-signature-by-certfile($assertion, $exsaml:idp-certfile):)
             true()
