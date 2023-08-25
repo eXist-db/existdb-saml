@@ -19,6 +19,7 @@
 
   <target>${package-abbrev}</target>
 
+  <prepare>pre-install.xq</prepare>
   <finish>post-install.xq</finish>
   
   <!-- includes everything in target, README.md, and LICENSE -->
