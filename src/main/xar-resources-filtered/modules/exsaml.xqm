@@ -100,7 +100,7 @@ declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) {
     let $zip := compression:deflate($bin, true())
 (:    let $log := exsaml:log("debug", "build-authnreq-redir-url; zip: " || $zip):)
     (: urlencode base64 request data :)
-    let $urlenc := xmldb:encode($zip)
+    let $urlenc := xmldb:encode($zip cast as xs:string)
 
     let $log := exsaml:log("debug", "build-authnreq-redir-url; urlenc: " || $urlenc)
 
