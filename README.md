@@ -136,7 +136,7 @@ declare option exist:serialize "method=html media-type=text/html indent=no";
 
 (: handle SP endpoint to process SAML response in HTTP POST :)
 if ($exist:path = "/SAML2SP")
-then (
+then
     let $log := util:log('info', "SAML2SP: processing SAML response")
     let $status := exsaml:process-saml-response-post()
     let $log := util:log('debug', "endpoint SAML2SP; status: " || $status/@code)
@@ -151,21 +151,21 @@ then (
         else
             (: if SAML failed, display an error message for now :)
             <data>{string($status/@msg) || ": " || string($status/@data)}</data>
-)
 
 (: if logout, invalidate SAML token :)
 else if ($exist:path = '/logout')
-then (
-    if (exsaml:is-enabled())
-    then exsaml:invalidate-saml-token()
-    else ()
-    ,
-    <dispatch> ... </dispatch>
-    )
+then
+    let $_ :=
+            if (exsaml:is-enabled())
+            then
+                exsaml:invalidate-saml-token()
+            else ()
+    return
+        <dispatch> ... </dispatch>
 
 (: if no valid token, redirect to SAML auth :)
 else if (exsaml:is-enabled() and not(exsaml:check-valid-saml-token()))
-then (
+then
     let $debug := exsaml:log('info', "controller: no valid token, redirect to SAML auth")
     let $return-path := "/exist/apps" || $exist:controller || $exist:path
     return
@@ -175,11 +175,9 @@ then (
                 <set-header name="Pragma" value="no-cache" />
             </redirect>
         </dispatch>
-    )
 
-else (
+else
     (: your controller code here :)
-)
 ```
 
 ## Misc
