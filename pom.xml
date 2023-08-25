@@ -34,6 +34,7 @@
 
     <exist.version>6.0.1</exist.version>
 
+    <exist.saml.username>exsaml</exist.saml.username>
     <exist.saml.library.path>/db/system/repo/${project.artifactId}-${project.version}</exist.saml.library.path>
 
   </properties>

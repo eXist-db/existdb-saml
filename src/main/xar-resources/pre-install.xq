@@ -2,7 +2,7 @@ xquery version "3.1";
 
 import module namespace sm = "http://exist-db.org/xquery/securitymanager";
 
-declare variable $saml-user-name := "exsaml";
+declare variable $saml-user-name := "${exist.saml.username}";
 
 (: Create the default 'exsaml' user account :)
 if (fn:not(sm:user-exists($saml-user-name)))
