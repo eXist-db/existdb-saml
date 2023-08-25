@@ -122,7 +122,7 @@ declare %private function exsaml:build-saml-authnreq() {
     return $req
 };
 
-declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string, $instant as xs:string) {
+declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string, $instant as xs:dateTime) {
       let $create-collection := 
         if (        
             not(xmldb:collection-available($exsaml:saml-coll-reqid))
@@ -139,7 +139,7 @@ declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string
 };
 
 (: store issued request ids in a collection,  :)
-declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:string) {
+declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:dateTime) {
     let $log := exsaml:log("info", "storing SAML request id: " || $id || ", date: " || $instant)
     return
         system:as-user(
