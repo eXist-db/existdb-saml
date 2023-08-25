@@ -31,7 +31,7 @@
 
     <!-- used in the EXPath Package Descriptor -->
     <package-name>http://exist-db.org/apps/exsaml</package-name>
-    
+
     <exist.version>6.0.1</exist.version>
 
     <exist.saml.library.path>/db/system/repo/${project.artifactId}-${project.version}</exist.saml.library.path>

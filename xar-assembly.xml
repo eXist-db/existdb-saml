@@ -40,5 +40,16 @@
       </includes>
     </fileSet>
   </fileSets>
-  
+
+  <!-- Export the XQuery Library modules written in XQuery from this project -->
+  <xquerySets>
+    <xquerySet>
+      <namespace>http://exist-db.org/xquery/exsaml</namespace>
+      <directory>${project.build.outputDirectory}</directory>
+      <includes>
+        <include>modules/exsaml.xqm</include>
+      </includes>
+    </xquerySet>
+  </xquerySets>
+
 </package>
