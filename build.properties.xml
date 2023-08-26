@@ -3,7 +3,7 @@
   <app>
     <name>existdb-saml</name>
     <description>SAML v2.0 Implementation in XQuery for eXist-db</description>
-    <version>1.6.3</version>
+    <version>1.7.0-SNAPSHOT</version>
     <url>http://exist-db.org/xquery/exsaml</url>
     <status>beta</status>
     <permissions>rwxr-xr-x</permissions>
