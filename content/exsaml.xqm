@@ -152,7 +152,14 @@ declare %private function exsaml:build-saml-authnreq($cid as xs:string) as eleme
     let $instant := fn:current-dateTime()
     let $store := exsaml:store-authnreqid($cid, $reqid, $instant)
     return
-        <samlp:AuthnRequest ID="{$reqid}" Version="{$exsaml:saml-version}" IssueInstant="{$instant}" AssertionConsumerServiceIndex="{$exsaml:sp-assertion-consumer-service-index}">
+        <samlp:AuthnRequest ID="{$reqid}" Version="{$exsaml:saml-version}" IssueInstant="{$instant}">
+        {
+            if (fn:exists($exsaml:sp-assertion-consumer-service-index))
+            then
+                attribute AssertionConsumerServiceIndex { $exsaml:sp-assertion-consumer-service-index }
+            else
+                attribute AssertionConsumerServiceURL { $exsaml:sp-uri }
+        }
             <saml:Issuer>{$exsaml:sp-ent}</saml:Issuer>
         </samlp:AuthnRequest>
 };
