@@ -12,10 +12,11 @@
     <!-- sp (service provider) is our local eXist DB -->
     <!--   @entity: just a namestring in URI format -->
     <!--   @endpoint: our HTTP endpoint to post SAML responses to -->
+    <!--   @assertion-consumer-service-index: Indirectly identifies the location to which the <Response> message should be returned to the requester by the IDP. -->
     <!--   @fallback-relaystate: used if IdP does not send a relaystate -->
 
     <!-- SERVICE PROVIDER CONFIGURATION  -->
-    <sp entity="https://service-provider.org" endpoint="https://service-provider.org/SAML2SP" fallback-relaystate="https://service-provider.org"/>
+     <sp entity="https://service-provider.org" endpoint="https://service-provider.org/SAML2SP" assertion-consumer-service-index="0" fallback-relaystate="https://service-provider.org"/>
 
 
     <!-- IDENTITY PROVIDER -->

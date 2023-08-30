@@ -30,6 +30,7 @@ declare %private variable $exsaml:config   := doc("config-exsaml.xml")/config;
 
 declare %private variable $exsaml:sp-ent   := data($exsaml:config/sp/@entity);
 declare %private variable $exsaml:sp-uri   := data($exsaml:config/sp/@endpoint);
+declare %private variable $exsaml:sp-assertion-consumer-service-index := $exsaml:config/sp/@assertion-consumer-service-index ! xs:integer(.);
 declare %private variable $exsaml:sp-fallback-rs := data($exsaml:config/sp/@fallback-relaystate);
 declare %private variable $exsaml:idp-ent  := data($exsaml:config/idp/@entity);
 declare %private variable $exsaml:idp-uri  := data($exsaml:config/idp/@endpoint);
@@ -151,7 +152,7 @@ declare %private function exsaml:build-saml-authnreq($cid as xs:string) as eleme
     let $instant := fn:current-dateTime()
     let $store := exsaml:store-authnreqid($cid, $reqid, $instant)
     return
-        <samlp:AuthnRequest ID="{$reqid}" Version="{$exsaml:saml-version}" IssueInstant="{$instant}" AssertionConsumerServiceIndex="0">
+        <samlp:AuthnRequest ID="{$reqid}" Version="{$exsaml:saml-version}" IssueInstant="{$instant}" AssertionConsumerServiceIndex="{$exsaml:sp-assertion-consumer-service-index}">
             <saml:Issuer>{$exsaml:sp-ent}</saml:Issuer>
         </samlp:AuthnRequest>
 };
