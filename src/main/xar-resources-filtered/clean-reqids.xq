@@ -1,10 +1,10 @@
 xquery version "3.1";
 
-import module namespace exsaml="http://exist-db.org/xquery/exsaml" at "/db/apps/existdb-saml/content/exsaml.xqm";
+import module namespace exsaml = "http://exist-db.org/xquery/exsaml" at "${exist.saml.library.path}/modules/exsaml.xqm";
 import module namespace functx = "http://www.functx.com";
 
 declare function local:clean-reqids() {
-    let $reqid-col := "/db/apps/existdb-saml/saml-request-ids"
+    let $reqid-col := "${exist.saml.library.path}/saml-request-ids"
     let $reqids := for $reqid in collection($reqid-col)/reqid
                         let $duration := xs:dateTime(current-dateTime()) - xs:dateTime($reqid)
                         return

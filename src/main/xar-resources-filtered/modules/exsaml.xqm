@@ -51,7 +51,7 @@ declare %private variable $exsaml:fake-user   := data($exsaml:config/fake-idp/@u
 declare %private variable $exsaml:fake-group  := data($exsaml:config/fake-idp/@group);
 
 (: SAML specific constants and non-configurable vars :)
-declare %private variable $exsaml:saml-coll-reqid := "/db/apps/existdb-saml/saml-request-ids";
+declare %private variable $exsaml:saml-coll-reqid := "${exist.saml.library.path}/saml-request-ids";
 declare %private variable $exsaml:saml-version   := "2.0";
 declare %private variable $exsaml:status-success := "urn:oasis:names:tc:SAML:2.0:status:Success";
 (: debugging only to simulate failure in fake-idp :)
@@ -100,7 +100,7 @@ declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) {
     let $zip := compression:deflate($bin, true())
 (:    let $log := exsaml:log("debug", "build-authnreq-redir-url; zip: " || $zip):)
     (: urlencode base64 request data :)
-    let $urlenc := xmldb:encode($zip)
+    let $urlenc := xmldb:encode($zip cast as xs:string)
 
     let $log := exsaml:log("debug", "build-authnreq-redir-url; urlenc: " || $urlenc)
 
@@ -122,7 +122,7 @@ declare %private function exsaml:build-saml-authnreq() {
     return $req
 };
 
-declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string, $instant as xs:string) {
+declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string, $instant as xs:dateTime) {
       let $create-collection := 
         if (        
             not(xmldb:collection-available($exsaml:saml-coll-reqid))
@@ -130,7 +130,7 @@ declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string
         then (
             let $log := exsaml:log("info", "collection " || $exsaml:saml-coll-reqid || " does not exist, attempting to create it")
             return
-                xmldb:create-collection("/db/apps/existdb-saml", "saml-request-ids")
+                xmldb:create-collection(fn:replace($exsaml:saml-coll-reqid, "(.*)/[^/]+", "$1"), fn:replace($exsaml:saml-coll-reqid, ".*/([^/]+)", "$1"))
         )
         else ()
     return
@@ -139,7 +139,7 @@ declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string
 };
 
 (: store issued request ids in a collection,  :)
-declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:string) {
+declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:dateTime) {
     let $log := exsaml:log("info", "storing SAML request id: " || $id || ", date: " || $instant)
     return
         system:as-user(
@@ -228,7 +228,7 @@ declare function exsaml:process-saml-response-post() {
         else ""
 
     let $pass := exsaml:create-user-password($auth/@nameid)
-    let $log-in := xmldb:login("/db/apps", $auth/@nameid, $pass, true())
+    let $log-in := xmldb:login("/db", $auth/@nameid, $pass, true())
     let $log := util:log("info", "login result: " || $log-in || ", " || fn:serialize(sm:id()))
 
     (: put SAML token into browser session :)

@@ -1,0 +1,84 @@
+<!-- To disable SAML authentication, set @enabled="false" -->
+<config enabled="true">
+
+    <!-- In SAML terminology, the eXist DB is the "service provider" (SP)
+         which uses a remote "identity provider" (IDP, eg PingFederate) to
+         perform user authentication.  Both peers are expected to encode their
+         "entity" names in requests/responses and to validate the peer's entity.
+         Also the URI endpoints of both peers need to be configured here. -->
+
+    <!-- SERVICE PROVIDER CONFIGURATION  -->
+
+    <!-- sp (service provider) is our local eXist DB -->
+    <!--   @entity: just a namestring in URI format -->
+    <!--   @endpoint: our HTTP endpoint to post SAML responses to -->
+    <!--   @fallback-relaystate: used if IdP does not send a relaystate -->
+
+    <!-- SERVICE PROVIDER CONFIGURATION  -->
+    <sp entity="https://service-provider.org" endpoint="http://localhost:8080/exist/apps/myapp/SAML2SP" fallback-relaystate="https://service-provider.org"/>
+
+
+    <!-- IDENTITY PROVIDER -->
+    <!-- idp (identity provider) is a remote SAML IDP, eg PingFederate -->
+    <!--   @entity: their namestring in URI format -->
+    <!--   @endpoint: their HTTP endpoint to send SAML requests to -->
+    <!--   @accept-unsolicited: enable IDP-initiated SAML -->
+    <!--   @force-relaystate: force clients to a local endpoint URI -->
+    <!--   @certfile: required for XML signature validation if sig sent by IDP -->
+    <!--   @verify-issuer: is a hack to deal with misconfigured IDPs -->
+
+    <idp entity="https://saml.example.com/entityid" endpoint="http://localhost:4000/api/saml/sso" accept-unsolicited="false" force-relaystate="" certfile="/usr/local/existdb/exist/cert/sso-prod.crt" verify-issuer="true"/>
+
+    <!-- crypto settings -->
+    <!--   @hmac-key: server-side secret key for HMACs -->
+    <!--   @hmac-alg: HMAC algorithm -->
+    <crypto hmac-key="existdb-saml-xquery-integration-test" hmac-alg="HMAC-SHA-256"/>
+
+    <!-- token settings.  @valid-mins is important here.
+         This defines how many minutes the local eXist DB will trust a SAML
+         assertion.  Setting this to "0" will force SAML roundtrip for every
+         request, including images, css etc.  This will put load on the IDP and
+         should be avoided.  Reasonable values might be 5-30. -->
+    <!--   @valid-mins: validity duration of an auth token in minutes -->
+    <!--   @name: name to store the token into session parameters -->
+    <token valid-mins="5" name="_token"/>
+
+    <!-- credentials for special user "exsaml".  This is a privileged user
+         in group "dba", needed for 2 purposes:
+         - "dba" privs required to check user exists / create user on the fly
+         - SAML requires that an SP (= eXist) maintains a collection of SAML
+           request IDs that it sent, and that this collection is tamperproof.
+           Only this user has access to the reqids collection. -->
+    <!--   @username: username of privileged user -->
+    <!--   @username: username of privileged user -->
+    <!--   @pass: plaintext password, WILL GO AWAY -->
+    <exsaml-creds username="exsaml" group="exsaml" pass="exsaml"/>
+
+    <!-- settings for dynamic user creation -->
+    <!-- Since we are using a third party for authentication (SAML IDP), there
+         is no need to keep users in the local eXist DB.  These settings may
+         be used to create local DB users on the fly, if required. -->
+    <!--   @create: either "true" (create local DB users) or "false" (do not) -->
+    <!--   @group: group membership for created users -->
+    <dynamic-users create="false"/>
+    <!-- dynamic-users create="true" group="sso-user"/ -->
+
+    <!-- group-attribute -->
+    <!-- This defines a SAML attribute name that is used specify group
+         membership, if the IDP passes this information as SAML attribute
+         assertion -->
+    <group-attribute>sso-user</group-attribute>
+
+    <!-- fake IDP for debugging, if no real IDP is available -->
+    <!-- Should be empty for production use.  If this is non-empty AND
+         idp/@ep above points to the local server, then a fake SAML assertion
+         is generated without any user/password dialog. -->
+    <!--   @result: fake result to return, either "true" (auth ok) or "false"
+                    (auth fail) -->
+    <!--   @minutes-valid: how long the returned SAML assertion is claimed
+                           valid by the IDP -->
+    <!--   @user: username to return an assertion for -->
+    <!--   @group: group membership to return for this user -->
+    <fake-idp/>
+    <!-- fake-idp result="true" minutes-valid="10" user="sso-user3" group="sso-user"/-->
+</config>
