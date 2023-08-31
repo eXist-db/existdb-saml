@@ -134,14 +134,16 @@ import module namespace exsaml="http://exist-db.org/xquery/exsaml" at 'xmldb:///
    that gets auto-submitted by the user's browser, back to the SP (eXist) :)
 declare option exist:serialize "method=html media-type=text/html indent=no";
 
+declare variable $exsaml-config := exsaml:parse-xml-config(doc("config-exsaml.xml"));
+
 (: if no valid token, redirect to SAML auth :)
-if (exsaml:is-enabled() and not(exsaml:check-valid-saml-token()))
+if (exsaml:is-enabled($exsaml-config) and not(exsaml:check-valid-saml-token($exsaml-config)))
 then (
     let $debug := exsaml:log('info', "controller: no valid token, redirect to SAML auth")
     let $return-path := "/exist/apps" || $exist:controller || $exist:path
     return
         <dispatch xmlns="http://exist.sourceforge.net/NS/exist">
-            <redirect url="{exsaml:build-authnreq-redir-url($return-path)}">
+            <redirect url="{exsaml:build-authnreq-redir-url($return-path, $exsaml-config)}">
                 <set-header name="Cache-Control" value="no-cache, no-store" />
                 <set-header name="Pragma" value="no-cache" />
             </redirect>
@@ -151,8 +153,8 @@ then (
 (: if logout, invalidate SAML token :)
 else if ($exist:path = '/logout')
 then (
-    if (exsaml:is-enabled())
-    then exsaml:invalidate-saml-token()
+    if (exsaml:is-enabled($exsaml-config))
+    then exsaml:invalidate-saml-token($exsaml-config)
     else ()
     ,
     <dispatch> ... </dispatch>
@@ -162,7 +164,7 @@ then (
 else if($exist:path = "/SAML2SP")
 then (
     let $log := util:log('info', "SAML2SP: processing SAML response")
-    let $status := exsaml:process-saml-response-post()
+    let $status := exsaml:process-saml-response-post($exsaml-config)
     let $log := util:log('debug', "endpoint SAML2SP; status: " || $status/@code)
     return
         if ($status/@code >= 0) then
