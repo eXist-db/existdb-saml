@@ -134,29 +134,34 @@ import module namespace exsaml="http://exist-db.org/xquery/exsaml" at 'xmldb:///
    that gets auto-submitted by the user's browser, back to the SP (eXist) :)
 declare option exist:serialize "method=html media-type=text/html indent=no";
 
+declare %private function local:redirect($uri as xs:string) as empty-sequence() {
+    let $response-status := (302, 303)[xs:integer(request:get-method() eq "POST") + 1]
+    return
+        (
+            response:set-status-code($response-status),
+            response:set-header("Location", $uri),
+            response:set-header("Cache-Control", "no-cache, no-store"),
+            response:set-header("Pragma", "no-cache")
+        )
+};
+
 (: if no valid token, redirect to SAML auth :)
 if (exsaml:is-enabled() and not(exsaml:check-valid-saml-token()))
 then (
     let $debug := exsaml:log('info', "controller: no valid token, redirect to SAML auth")
     let $return-path := "/exist/apps" || $exist:controller || $exist:path
     return
-        <dispatch xmlns="http://exist.sourceforge.net/NS/exist">
-            <redirect url="{exsaml:build-authnreq-redir-url($return-path)}">
-                <set-header name="Cache-Control" value="no-cache, no-store" />
-                <set-header name="Pragma" value="no-cache" />
-            </redirect>
-        </dispatch>
-    )
+        local:redirect(exsaml:build-authnreq-redir-url($return-path))
 
 (: if logout, invalidate SAML token :)
 else if ($exist:path = '/logout')
 then (
-    if (exsaml:is-enabled())
-    then exsaml:invalidate-saml-token()
+    if (exsaml:is-enabled()) then
+        exsaml:invalidate-saml-token()
     else ()
     ,
-    <dispatch> ... </dispatch>
-    )
+    local:redirect("http://some-exit-url.com")
+)
 
 (: handle SP endpoint to process SAML response in HTTP POST :)
 else if($exist:path = "/SAML2SP")
@@ -169,9 +174,7 @@ then (
             (: forward to page that was requested by the user :)
             let $debug := util:log("info", "Auth success - code " || $status/@code || " - relaystate: " || $status/@relaystate)
             return
-                <dispatch xmlns="http://exist.sourceforge.net/NS/exist">
-                    <redirect url="{$status/@relaystate}"/>
-                </dispatch>
+                local:redirect($status/@relaystate)
         else
             (: if SAML failed, display an error message for now :)
             <data>{string($status/@msg) || ": " || string($status/@data)}</data>
