@@ -135,6 +135,17 @@ declare option exist:serialize "method=html media-type=text/html indent=no";
 
 declare variable $cid := exsaml:generate-correlation-id();
 
+declare %private function local:redirect($uri as xs:string) as empty-sequence() {
+    let $response-status := (302, 303)[xs:integer(request:get-method() eq "POST") + 1]
+    return
+        (
+            response:set-status-code($response-status),
+            response:set-header("Location", $uri),
+            response:set-header("Cache-Control", "no-cache, no-store"),
+            response:set-header("Pragma", "no-cache")
+        )
+};
+
 (: handle SP endpoint to process SAML response in HTTP POST :)
 if ($exist:path = "/SAML2SP")
 then
@@ -146,9 +157,7 @@ then
             (: forward to page that was requested by the user :)
             let $debug := exsaml:log("info", $cid, "Auth success - code " || $status/@code || " - relaystate: " || $status/@relaystate)
             return
-                <dispatch xmlns="http://exist.sourceforge.net/NS/exist">
-                    <redirect url="{$status/@relaystate}"/>
-                </dispatch>
+                local:redirect($status/@relaystate)
         else
             (: if SAML failed, display an error message for now :)
             <data cid="{$cid}">{string($status/@msg) || ": " || string($status/@data)}</data>
@@ -162,7 +171,7 @@ then
                 exsaml:invalidate-saml-token($cid)
             else ()
     return
-        <dispatch> ... </dispatch>
+        local:redirect("http://some-exit-url.com")
 
 (: if no valid token, redirect to SAML auth :)
 else if (exsaml:is-enabled($cid) and not(exsaml:check-valid-saml-token($cid)))
@@ -170,12 +179,7 @@ then
     let $debug := exsaml:log('info', $cid, "controller: no valid token, redirect to SAML auth")
     let $return-path := "/exist/apps" || $exist:controller || $exist:path
     return
-        <dispatch xmlns="http://exist.sourceforge.net/NS/exist">
-            <redirect url="{exsaml:build-authnreq-redir-url($cid, $return-path)}">
-                <set-header name="Cache-Control" value="no-cache, no-store" />
-                <set-header name="Pragma" value="no-cache" />
-            </redirect>
-        </dispatch>
+        local:redirect(exsaml:build-authnreq-redir-url($cid, $return-path))
 
 else
     (: your controller code here :)
