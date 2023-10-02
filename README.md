@@ -127,7 +127,7 @@ to use SAML:
 
 ```xquery
 (: import exsaml module :)
-import module namespace exsaml="http://exist-db.org/xquery/exsaml" at 'xmldb:///db/apps/existdb-saml/content/exsaml.xqm';
+import module namespace exsaml="http://exist-db.org/xquery/exsaml" at 'xmldb:///db/system/repo/existdb-saml/content/exsaml.xqm';
 
 (: this is required for SAML so that the IDP response can be rendered as a form
    that gets auto-submitted by the user's browser, back to the SP (eXist) :)
@@ -204,7 +204,7 @@ purge outdated request IDs. Use something like this in `conf.xml`.
     <scheduler>
         <job    type="user"
                 name="clean-up-sso-reqids"
-                xquery="/db/apps/existdb-saml/content/clean-reqids.xql"
+                xquery="/db/system/repo/existdb-saml/content/clean-reqids.xql"
                 cron-trigger="0 0 * * * ? *"/>
     </scheduler>
 ```

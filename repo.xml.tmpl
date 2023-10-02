@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <meta xmlns="http://exist-db.org/xquery/repo">
   <description>@description@</description>
+  <author id="eXist-db">The eXist-db Authors</author>
   <website>@website@</website>
   <status>@status@</status>
-  <license>LGPL 2.1</license>
+  <license>GNU LGPL 2.1</license>
   <copyright>true</copyright>
   <type>library</type>
-  <target>existdb-saml</target>
-  <prepare />
+  <prepare>pre-install.xql</prepare>
   <finish>post-install.xql</finish>
-  <permissions user="exsaml" group="dba" password="exsamlpass" mode="rwxrwxr-x"/>
 </meta>

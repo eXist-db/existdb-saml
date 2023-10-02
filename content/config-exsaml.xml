@@ -52,7 +52,7 @@
     <!--   @username: username of privileged user -->
     <!--   @username: username of privileged user -->
     <!--   @pass: plaintext password, WILL GO AWAY -->
-    <exsaml-creds username="exsaml" group="exsaml" pass="my other password"/>
+    <exsaml-creds username="exsaml" group="exsaml" pass="exsaml"/>
 
     <!-- settings for dynamic user creation -->
     <!-- Since we are using a third party for authentication (SAML IDP), there

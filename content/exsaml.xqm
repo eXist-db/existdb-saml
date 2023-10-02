@@ -57,7 +57,8 @@ declare %private variable $exsaml:fake-user   := data($exsaml:config/fake-idp/@u
 declare %private variable $exsaml:fake-group  := data($exsaml:config/fake-idp/@group);
 
 (: SAML specific constants and non-configurable vars :)
-declare %private variable $exsaml:saml-coll-reqid := "/db/apps/existdb-saml/saml-request-ids";
+declare %private variable $exsaml:saml-coll := "/db/system/repo/existdb-saml-1.7.0-SNAPSHOT";
+declare %private variable $exsaml:saml-coll-reqid := $exsaml:saml-coll || "/saml-request-ids";
 declare %private variable $exsaml:saml-version   := "2.0";
 declare %private variable $exsaml:status-success := "urn:oasis:names:tc:SAML:2.0:status:Success";
 (: debugging only to simulate failure in fake-idp :)
@@ -168,7 +169,7 @@ declare %private function exsaml:store-authnreqid-as-exsol-user($cid as xs:strin
             then
                 let $log := exsaml:log("info", $cid, "collection " || $exsaml:saml-coll-reqid || " does not exist, attempting to create it")
                 return
-                    xmldb:create-collection("/db/apps/existdb-saml", "saml-request-ids")
+                    xmldb:create-collection(fn:replace($exsaml:saml-coll-reqid, "(.+)/[^/]+", "$1"), fn:replace($exsaml:saml-coll-reqid, ".+/([^/]+)", "$1"))
             else ()
     return
         xmldb:store($exsaml:saml-coll-reqid, $reqid, <reqid>{$instant}</reqid>)
@@ -273,7 +274,7 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
                                 else ""
 
                         let $pass := exsaml:create-user-password($auth/@nameid)
-                        let $log-in := xmldb:login("/db/apps", $auth/@nameid, $pass, true())
+                        let $log-in := xmldb:login("/db", $auth/@nameid, $pass, true())
                         let $log := exsaml:log("info", $cid, "login result: " || $log-in || ", " || fn:serialize(sm:id()))
 
                         (: put SAML token into browser session :)
