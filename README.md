@@ -1,7 +1,6 @@
 # existdb-saml - SAML v2.0 Implementation in XQuery
 
-**NOTE** You will need **eXist v4.4 or higher** to run this code (a required
-compression function has been added in that release).
+**NOTE** You will need **eXist-db version 6.0.1 or higher** to run this code.
 
 ## Overview
 
