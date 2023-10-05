@@ -222,7 +222,7 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
             else
                 let $decode-resp := util:base64-decode($saml-resp)
                 return
-                    fn:parse-xml-fragment($decode-resp)
+                    fn:parse-xml($decode-resp)
 
     let $debug := exsaml:log("debug", $cid, "START SAML RESPONSE")
     let $debug := exsaml:log("debug", $cid, $saml-resp)
@@ -645,7 +645,7 @@ declare function exsaml:process-saml-request($cid as xs:string) as element(html)
     let $log  := exsaml:log("debug", $cid, "process-saml-request; uncomp: " || $uncomp)
     let $strg := util:base64-decode($uncomp)
     let $log  := exsaml:log("debug", $cid, "process-saml-request; strg: " || $strg)
-    let $req  := fn:parse-xml-fragment($strg)
+    let $req  := fn:parse-xml($strg)
     let $log  := exsaml:log("debug", $cid, "process-saml-request; req: " || $req)
     let $rs   := request:get-parameter("RelayState", false())
 
