@@ -163,7 +163,7 @@ declare %private function exsaml:build-saml-authnreq($cid as xs:string) as eleme
  : @param $reqid The SAML Request ID.
  : @param $instant the instant.
  :)
-declare %private function exsaml:store-authnreqid-as-exsol-user($cid as xs:string, $reqid as xs:string, $instant as xs:string) {
+declare %private function exsaml:store-authnreqid-as-exsol-user($cid as xs:string, $reqid as xs:string, $instant as xs:dateTime) {
     let $create-collection :=
             if (not(xmldb:collection-available($exsaml:saml-coll-reqid)))
             then
@@ -182,7 +182,7 @@ declare %private function exsaml:store-authnreqid-as-exsol-user($cid as xs:strin
  : @param $reqid The SAML Request ID.
  : @param $instant the instant.
  :)
-declare %private function exsaml:store-authnreqid($cid as xs:string, $reqid as xs:string, $instant as xs:string) {
+declare %private function exsaml:store-authnreqid($cid as xs:string, $reqid as xs:string, $instant as xs:dateTime) {
     let $log := exsaml:log("info", $cid, "storing SAML request id: " || $reqid || ", date: " || $instant)
     return
         system:as-user(
@@ -571,7 +571,7 @@ declare function exsaml:check-valid-saml-token($cid as xs:string) as xs:boolean 
  :)
 declare function exsaml:invalidate-saml-token($cid as xs:string) as empty-sequence() {
     let $user := sm:id()/sm:id/sm:real/sm:username
-    let $tok  := exsaml:build-string-token($cid, $user, "1970-01-01T00:00:00")
+    let $tok  := exsaml:build-string-token($cid, $user, xs:dateTime("1970-01-01T00:00:00"))
     let $hmac := exsaml:hmac-tokval($cid, $tok)
     let $log  := exsaml:log("info", $cid, "invalidate saml token for: " || $user || ", hmac: " || $hmac)
     return
@@ -602,7 +602,7 @@ declare %private function exsaml:hmac-tokval($cid as xs:string, $tokval as xs:st
  :
  : @return the token.
  :)
-declare %private function exsaml:build-string-token($cid as xs:string, $nameid as xs:string, $validto as xs:string) as xs:string {
+declare %private function exsaml:build-string-token($cid as xs:string, $nameid as xs:string, $validto as xs:dateTime) as xs:string {
     let $log  := exsaml:log("debug", $cid, "build-string-token; n: " || $nameid || ", v: " || $validto)
     return
         $nameid || $exsaml:token-separator || $validto
