@@ -216,7 +216,7 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
     let $saml-resp := request:get-parameter("SAMLResponse", "error")
 
     let $resp :=
-            if ($saml-resp = "error")
+            if ($saml-resp = "error" or fn:empty($resp/samlp:Response))
             then
                 $saml-resp
             else
@@ -238,7 +238,7 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
 
             try {
 
-                let $res := exsaml:validate-saml-response($cid, $resp)
+                let $res := exsaml:validate-saml-response($cid, $resp/samlp:Response)
                 return
                     if (xs:integer($res/@res) lt 0)
                     then
@@ -270,8 +270,8 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
                            If SAML success, this is basically username and group membership.
                            IF SAML fail, pass enough info to allow meaningful error messages. :)
                         let $auth :=
-                                <authresult code="{$res/@res}" msg="{$res/@msg}" nameid="{$resp/saml:Assertion/saml:Subject/saml:NameID}" relaystate="{$rsout}" authndate="{$resp/saml:Assertion/@IssueInstant}">
-                                    <groups>{exsaml:fetch-saml-attribute-values($cid, $exsaml:group-attr, $resp/saml:Assertion) ! <group>{.}</group>}</groups>
+                                <authresult code="{$res/@res}" msg="{$res/@msg}" nameid="{$resp/samlp:Response/saml:Assertion/saml:Subject/saml:NameID}" relaystate="{$rsout}" authndate="{$resp/samlp:Response/saml:Assertion/@IssueInstant}">
+                                    <groups>{exsaml:fetch-saml-attribute-values($cid, $exsaml:group-attr, $resp/samlp:Response/saml:Assertion) ! <group>{.}</group>}</groups>
                                 </authresult>
 
                         (: create SAML user if not exists yet :)
@@ -306,15 +306,16 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
  : Validate a SAML response message.
  :
  : @param $cid An id used for correlating log messages.
- : @param $resp the XML document containing the SAML Response.
+ : @param $resp the XML element containing the SAML Response.
  :
  : @return an element indicating the result of the validation.
  :)
-declare %private function exsaml:validate-saml-response($cid as xs:string, $resp as node()) as element(exsaml:funcret) {
+declare %private function exsaml:validate-saml-response($cid as xs:string, $resp as element(samlp:Response)) as element(exsaml:funcret) {
     let $log  := exsaml:log("info", $cid, "validate-saml-response")
 
-    let $as := $resp/saml:Assertion
-    let $sig := $resp/ds:Signature
+    let $as as element(saml:Assertion)? := $resp/saml:Assertion
+    let $sig as element(ds:Signature)? := $resp/ds:Signature
+    let $reqid as xs:string? := $resp/@InResponseTo ! xs:string(.)
     return
 
         (: check SAML response status. there are ~20 failure codes, check
@@ -338,6 +339,11 @@ declare %private function exsaml:validate-saml-response($cid as xs:string, $resp
         (:            else if (boolean($sig) and not(exsaml:verify-response-signature($cid, $sig))) then :)
         (:            <exsaml:funcret res="-4" msg="failed to verify response signature" cid="{$cid}"/> :)
 
+        (: verify Response/@InResponseTo is present in the SAML response :)
+        else if (fn:exists($reqid) and not(exsaml:check-authnreqid($reqid)))
+        then
+            <exsaml:funcret res="-7" msg="did not send this SAML request" data="{$reqid}"/>
+
         (: must contain at least one assertion :)
         else if (empty($as))
         then
@@ -356,7 +362,7 @@ declare %private function exsaml:validate-saml-response($cid as xs:string, $resp
  :
  : @return an element indicating the result of the validation.
  :)
-declare %private function exsaml:validate-saml-assertion($cid as xs:string, $assertion as item()) as element(exsaml:funcret) {
+declare %private function exsaml:validate-saml-assertion($cid as xs:string, $assertion as element(saml:Assertion)) as element(exsaml:funcret) {
     if (empty($assertion))
     then
         let $log := exsaml:log("info", $cid, "Error: Empty Assertion")
@@ -365,10 +371,10 @@ declare %private function exsaml:validate-saml-assertion($cid as xs:string, $ass
 
     else
         let $log := exsaml:log("info", $cid, "validate-saml-assertion: " || fn:serialize($assertion))
-        let $sig := $assertion/ds:Signature
-        let $subj-confirm-data := $assertion/saml:Subject/saml:SubjectConfirmation/saml:SubjectConfirmationData
-        let $conds := $assertion/saml:Conditions
-        let $reqid := $subj-confirm-data/@InResponseTo
+        let $sig as element(ds:Signature)? := $assertion/ds:Signature
+        let $subj-confirm-data as element(saml:SubjectConfirmationData)? := $assertion/saml:Subject/saml:SubjectConfirmation/saml:SubjectConfirmationData
+        let $conds as element(saml:Conditions)? := $assertion/saml:Conditions
+        let $reqid as xs:string? := $subj-confirm-data/@InResponseTo ! xs:string(.)
         return
 
             (: check that "Issuer" is the expected IDP.  Not stricty required by
@@ -388,12 +394,12 @@ declare %private function exsaml:validate-saml-assertion($cid as xs:string, $ass
             (: maybe verify SubjectConfirmation/@Method :)
 
             (: verify SubjectConfirmationData/@Recipient is SP URL ($sp-uri) :)
-            else if (not($subj-confirm-data/@Recipient = $exsaml:sp-uri))
+            else if (fn:exists($subj-confirm-data/@Recipient) and not($subj-confirm-data/@Recipient = $exsaml:sp-uri))
             then
                 <exsaml:funcret res="-11" msg="assertion not for me" cid="{$cid}" data="{$subj-confirm-data/@Recipient}"/>
 
             (: verify SubjectConfirmationData/@NotOnOrAfter is not later than now :)
-            else if (xs:dateTime(fn:current-dateTime()) ge xs:dateTime($subj-confirm-data/@NotOnOrAfter))
+            else if (fn:exists($subj-confirm-data/@NotOnOrAfter) and xs:dateTime(fn:current-dateTime()) ge xs:dateTime($subj-confirm-data/@NotOnOrAfter))
             then
                 <exsaml:funcret res="-12" msg="assertion no longer valid" cid="{$cid}" data="{$subj-confirm-data/@NotOnOrAfter}"/>
 
