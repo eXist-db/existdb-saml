@@ -1,58 +1,69 @@
-# existdb-saml - SAML v2.0 Implementation in XQuery
+# existdb-saml - SAML V2.0 Implementation in XQuery for eXist-db
 
 **NOTE** You will need **eXist-db version 6.0.1 or higher** to run this code.
 
 ## Overview
 
-This is a partial implementation of SAML v2.0 in XQuery that allows eXist DB
-to delegate authentication to a third-party identity provider using SAML.
+This is a partial implementation of OASIS [SAML V2.0](http://docs.oasis-open.org/security/saml/Post2.0/sstc-saml-tech-overview-2.0.html) in XQuery for eXist-db that allows eXist-db to act as an SP (Service Provider) and delegate authentication to a third-party IdP (Identity Provider).
 
-The current implementation supports the SAML2 Web Browser SSO Profile with
-- SP-initiated SSO Redirect-POST
-- IDP-initiated SSO POST
+This implementation provides the following bindings of the [Web Browser SSO Profile](http://docs.oasis-open.org/security/saml/Post2.0/sstc-saml-tech-overview-2.0-cd-02.html#5.1.Web%20Browser%20SSO%20Profile|outline):
+1. [SP-Initiated SSO: Redirect/POST Bindings](http://docs.oasis-open.org/security/saml/Post2.0/sstc-saml-tech-overview-2.0-cd-02.html#5.1.2.SP-Initiated%20SSO:%20%20Redirect/POST%20Bindings|outline)
+2. [IdP-Initiated SSO: POST Binding](http://docs.oasis-open.org/security/saml/Post2.0/sstc-saml-tech-overview-2.0-cd-02.html#5.1.4.IdP-Initiated%20SSO:%20%20POST%20Binding|outline)
 
-For details on the SAML profiles see https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf
+This library may be useful when you have an XQuery application running atop eXist-db where you need users to authenticate with a 3rd-party provider.
 
-This code is considered stable and production-ready. A slightly earlier
-version of this code runs in production on a large site, interfacing with a
-"PingFederate" SAML IDP installation.
 
-This code passed auditing and pen-testing by a third party on behalf of the
-customer.
+## Introduction
 
-## How to use (in simple terms)
+In SAML parlance:
 
-You have an application running on eXist. In SAML terminology, this is the
-service provider (SP), because the eXist DB service provides access to data.
+1. SP (Service Provider) is Your Application.
+    
+    Your application running atop eXist-db is known as the SP (Service Provider); due to the fact that it provides some sort of "service" to one or more 3rd-party users and/or applications (User Agents).
 
-You don't want to manage users and passwords with eXist, possibly because you
-expect a high number of users.  Instead, you want to delegate user 
-authentication to a third party, the identity provider (IDP) in SAML terms.
+2. IdP (Identity Provider) performs the Authentication (e.g. Microsoft, Google, etc.).
 
-Basically, the IDP is responsible for keeping user/password data and handling
-client authentication. Effectively, the IDP presents a username/password
-dialog, authenticates a user, and then presents a SAML assertion "this user
-has successfully authenticated" to the SP.
+    A separate 3rd-party (trusted by both yourself and the 3rd-party user/application), that provides an authentication service to your application is known as the IdP (Identity Provider); due to the fact that they establish the identity of the 3rd-party User Agent (by some form of authentication and possibly authorization).
 
-Consider a sports event and you're heading to your seats in block B-52. The
-gatekeeper tells you that your ticket is not valid yet, please go to the IDP
-counter and login to get a valid ticket, then come back and get access. In
-SAML terms, this is "SP-initiated SSO", because clients access your resources
-(eXist DB, service provider), and your application gatekeeper redirects clients
-to the IDP, which sends them back after authentication.
+### SP-Initiated SSO
+
+This is typically the most common approach. If you are new to configuring a SAML system, we recommend that you focus on this approach first.
+
+When using this approach the sequence of events that happen are as follows:
+
+1. The User Agent visits your application (i.e. SP)
+2. The SP (i.e. your application) checks if the User Agent already has access (i.e. recently already authenticated with IdP), if so it supplies the service to the User Agent. Else...
+3. The SP provides an SAML Authn request to the User Agent, and tells them to redirect their SAML Authn request to the IdP
+4. The User Agent sends their SAML Authn request to the IdP
+5. The IdP validates the SAML Authn request. If it is invalid the User agent is notified, Else...
+6. The IdP challenges the User Agent for their credentials (e.g. Username and Password)
+7. The 3rd-party User Agent provides their credentials to the IdP
+8. The Idp validates the User Agent credentials. If authentication is unsuccessful, the User Agent is notified. Else...
+9. The IdP provides a SAML Response to the User Agent, an an HTML Form.
+10. The User Agent submits the HTML form, thus sending the SAML Response to the SP.
+11. The SP validates the SAML Response. If the SAML Response is invalid, the User Agent is notified. Else...
+12. The SP supplies the service to the User Agent.
+
+![Diagram of SP-Initiated SSO Flow Chart](https://raw.githubusercontent.com/eXist-db/existdb-saml/master/doc/sp-initiated-sso-flow-chart.png)
+
+### IdP-initiated SSO
+
+**TODO**
 
 A variation of this is "IDP-initiated SSO POST" where an IDP actively sends a
 client to some SP resource, as in "give this authenticated user access to
 resource /X". In the sports event analogy these are comparable to sponsored
 VIP lounge tickets issued by the IDP, to bypass the SP crowd.
 
-## How to use (in technical terms)
+## How to Deploy
 
-Existdb-saml is an application library that can be added through the eXist
-package manager.  You will need to edit its configuration file (eg in eXide),
-you need to assign a password of your choice to the `exsaml` user and you
-will need to modify the `controller.xql` file of your application to intercept
-requests to be authenticated by SAML.
+existdb-saml is an application library that can be added through the eXist-db Dashboard's Package Manager, or downloaded from the [eXist-db EXPath Package Repository](https://exist-db.org/exist/apps/public-repo/)
+
+In basic terms you will need to undertake 3 steps:
+
+1. Assign a password of your choice to the `exsaml` user.
+2. Edit the existdb-saml configuration file (`/db/apps/existdb-saml/config-exsaml.xml`).
+3. Modify the URL Rewrite Controller (`controller.xq`) file of your application to intercept requests to be authenticated by existdb-saml.
 
 ### Exchange peering data with IDP
 
@@ -65,13 +76,22 @@ signature. The SAML standard mandates to validate XML signatures if they are
 present. In order to do this you need the X.509 certificate file from the IDP
 containing the public key needed to validate the signatures.
 
-### Edit config-exsaml.xml file
+### 1. Set the password for the `exsaml` DB User
+
+During installation of the existdb-saml package, a special DB user named `exsaml` gets created if it does not already exist. This user will be created with a default password.
+
+You need to choose a reasonable password for the `exsaml` user, and then set that as the user's password. The following XQuery when executed will perform such a task:
+```xquery
+sm:passwd('exsaml', 'YOUR PASSWORD HERE')
+```
+
+### 2. Edit the `config-exsaml.xml` file
 
 In the `<config>` element, set the `enabled` attribute to `true` to enable
 SAML.
 
 In the `<sp>` element, set your entity name (a namestring in URI format) and
-your endpoint URI (handled by your `controller.xql` file.
+your endpoint URI (handled by your `controller.xq` file.
 `fallback-relaystate` is only relevant if IDP-initiated SSO is enabled, it is
 the default landing page if an IDP-initiated SSO does not specify where the
 client should go.
@@ -92,12 +112,11 @@ in minutes. After successful SAML authentication, a token is set in the user's
 browser, effectively caching authentication credentials. If the token has
 expired, another SAML roundtrip will happen between SP and IDP.
 
-In the `<exsaml-creds>` element, set a password for the privileged `exsaml`
-user. You also need to assign this password to `exsaml` user, see below.
+In the `<exsaml-creds>` element, set the password for the privileged `exsaml` user that you previously chose.
 
 If you need to store user specific settings such as the preferred language,
 you may want to set `create` to `true` in the `<dynamic-users>` element. By
-default, users are not created in eXist DB because usernames and passwords
+default, users are not created in eXist-db because usernames and passwords
 are kept at the IDP.
 
 A SAML IDP may send additional data as SAML attribute assertions, e.g. to
@@ -108,21 +127,9 @@ to send these attributes.
 The `<fake-idp>` element may be used for debugging if no "real" IDP is 
 available yet. This element should be empty for production use.
 
-### Set Password for the `exsaml` DB User
+### 3. Edit the `controller.xq` of Your Application
 
-During installation of the existdb-saml package, a special DB user `exsaml`
-gets created if it does not exist. This user will be created with a default
-password (in order to not ship with a blank password).
-
-You need to assign your chosen password as configured in file
-`config-exsaml.xml` (tag `exsaml-creds/@pass`) to the `exsaml` DB user.
-
-In EXide, you could do this by executing
-`sm:passwd('exsaml', 'THE PASSWORD YOU CONFIGURED')`.
-
-### Edit controller.xql of Your Application
-
-You need to adjust the `controller.xql` of your application like this in order
+You need to adjust the `controller.xq` of your application like this in order
 to use SAML:
 
 ```xquery
