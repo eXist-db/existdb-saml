@@ -127,10 +127,10 @@ declare %private function exsaml:build-saml-authnreq() {
 };
 
 declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string, $instant as xs:string) {
-      let $create-collection := 
-        if (        
-            not(xmldb:collection-available($exsaml:saml-coll-reqid))
-        )
+    let $create-collection :=
+        if (
+	    not(xmldb:collection-available($exsaml:saml-coll-reqid))
+	)
         then (
             let $log := exsaml:log("info", "collection " || $exsaml:saml-coll-reqid || " does not exist, attempting to create it")
             return
@@ -163,7 +163,7 @@ declare %private function exsaml:store-authnreqid($id as xs:string, $instant as 
  : so the user can be redirected to the requested resource.
  :)
 declare function exsaml:process-saml-response-post() {
-    let $log  := exsaml:log("info", "process-saml-response-post")
+    let $log := exsaml:log("info", "process-saml-response-post")
     let $saml-resp := request:get-parameter("SAMLResponse", "error")
     return
         if ($saml-resp = "error")
@@ -172,7 +172,7 @@ declare function exsaml:process-saml-response-post() {
         )
         else (
             let $parsed-resp := fn:parse-xml-fragment(util:base64-decode($saml-resp))
-            let $real-resp   :=
+            let $real-resp :=
                 if ($exsaml:quirk-pre53-parsexmlfragment)
                 then $parsed-resp
                 else $parsed-resp/samlp:Response
@@ -184,53 +184,54 @@ declare function exsaml:process-saml-response-post() {
 declare function exsaml:process-saml-response-post-parsed($resp as node()) {
     let $log  := exsaml:log("debug", "process-saml-response-parsed: response: " || $resp)
 
-                try {
-    let $res  := exsaml:validate-saml-response($resp)
-                    return
-                        if($res/@res < 0)
-                            then (
-                                $res
-                            )
-                            else (
-    let $rsout := exsaml:determine-relay-state()
+    try {
+        let $res  := exsaml:validate-saml-response($resp)
+        return
+            if ($res/@res < 0)
+            then (
+                $res
+            )
+            else (
+                let $rsout := exsaml:determine-relay-state()
 
-    (: Return an element with all SAML validation data to the controller.
-       If SAML success, this is basically username and group membership.
-       IF SAML fail, pass enough info to allow meaningful error messages. :)
-    let $auth := element { "authresult" } {
-        attribute code   { $res/@res },
-        attribute msg    { $res/@msg },
-        attribute nameid { $resp/saml:Assertion/saml:Subject/saml:NameID },
-        attribute relaystate { $rsout },
-        attribute authndate  { $resp/saml:Assertion/@IssueInstant },
-        element { "groups" } {
-            for $i in exsaml:fetch-saml-attribute-values($exsaml:group-attr, $resp/saml:Assertion)
-            return element { "group" } { $i }
-        }
-    }
-    (: create SAML user if not exists yet :)
-    let $u :=
-        if ($exsaml:create-user = "true" and $auth/@code >= "0") then
-            exsaml:ensure-saml-user($auth/@nameid)
-        else ""
-
-    let $pass := exsaml:create-user-password($auth/@nameid)
-    let $log-in := xmldb:login("/db/apps", $auth/@nameid, $pass, true())
-    let $log := util:log("info", "login result: " || $log-in || ", " || fn:serialize(sm:id()))
-
-    (: put SAML token into browser session :)
-    let $sesstok :=
-        if ($log-in and $auth/@code >= "0") then
-            exsaml:set-saml-token($auth/@nameid, $auth/@authndate)
-        else ()
-
-                                let $debug := exsaml:log("info", "finished exsaml:process-saml-response-post. auth: ")
-                                let $debug := exsaml:log("info", fn:serialize($auth))
-    return $auth
-                        )
-                }  catch * {
-                        <error>Caught error {$err:code}: {$err:description}. Data: {$err:value}</error>
+                (: Return an element with all SAML validation data to the controller.
+                   If SAML success, this is basically username and group membership.
+                   IF SAML fail, pass enough info to allow meaningful error messages. :)
+                let $auth := element { "authresult" } {
+                    attribute code   { $res/@res },
+                    attribute msg    { $res/@msg },
+                    attribute nameid { $resp/saml:Assertion/saml:Subject/saml:NameID },
+                    attribute relaystate { $rsout },
+                    attribute authndate  { $resp/saml:Assertion/@IssueInstant },
+                    element { "groups" } {
+                        for $i in exsaml:fetch-saml-attribute-values($exsaml:group-attr, $resp/saml:Assertion)
+                        return element { "group" } { $i }
+                    }
                 }
+
+                (: create SAML user if not exists yet :)
+                let $u :=
+                    if ($exsaml:create-user = "true" and $auth/@code >= "0") then
+		        exsaml:ensure-saml-user($auth/@nameid)
+                    else ""
+
+                let $pass := exsaml:create-user-password($auth/@nameid)
+                let $log-in := xmldb:login("/db/apps", $auth/@nameid, $pass, true())
+                let $log := util:log("info", "login result: " || $log-in || ", " || fn:serialize(sm:id()))
+
+                (: put SAML token into browser session :)
+                let $sesstok :=
+                    if ($log-in and $auth/@code >= "0") then
+                        exsaml:set-saml-token($auth/@nameid, $auth/@authndate)
+                    else ()
+
+                let $debug := exsaml:log("info", "finished exsaml:process-saml-response-post. auth: ")
+                let $debug := exsaml:log("info", fn:serialize($auth))
+                return $auth
+            )
+    } catch * {
+        <error>Caught error {$err:code}: {$err:description}. Data: {$err:value}</error>
+    }
 };
 
 declare function exsaml:determine-relay-state() {
@@ -257,15 +258,15 @@ declare function exsaml:determine-relay-state() {
 
 (: validate a SAML response message :)
 declare %private function exsaml:validate-saml-response($resp as node()) {
-    let $log  := exsaml:log("info", "validate-saml-response")
+    let $log := exsaml:log("info", "validate-saml-response")
 
     let $as := $resp/saml:Assertion
     let $sig := $resp/ds:Signature
     let $result :=
 
-    (: check SAML response status. there are ~20 failure codes, check
-     : for success only, return errmsg in @data
-     :)
+        (: check SAML response status. there are ~20 failure codes, check
+         : for success only, return errmsg in @data
+         :)
         if (not($resp/samlp:Status/samlp:StatusCode/@Value = $exsaml:status-success)) then
             <exsaml:funcret res="-3" msg="SAML authentication failed" data="{$resp/samlp:Status/samlp:StatusCode/@Value}"/>
 
