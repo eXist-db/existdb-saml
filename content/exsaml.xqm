@@ -181,7 +181,7 @@ declare function exsaml:process-saml-response-post() {
         )
 };
 
-declare function exsaml:process-saml-response-post-parsed($resp as node()) {
+declare %private function exsaml:process-saml-response-post-parsed($resp as node()) {
     let $log  := exsaml:log("debug", "process-saml-response-parsed: response: " || $resp)
 
     try {
@@ -234,7 +234,7 @@ declare function exsaml:process-saml-response-post-parsed($resp as node()) {
     }
 };
 
-declare function exsaml:determine-relay-state() {
+declare %private function exsaml:determine-relay-state() {
     let $rsin := request:get-parameter("RelayState", "")
     let $rsout :=
         (: if we accept IDP-initiated SAML *and* use a forced landing page :)
