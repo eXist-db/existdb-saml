@@ -192,24 +192,7 @@ declare function exsaml:process-saml-response-post-parsed($resp as node()) {
                                 $res
                             )
                             else (
-    let $rsin := request:get-parameter("RelayState", "")
-    let $rsout :=
-        (: if we accept IDP-initiated SAML *and* use a forced landing page :)
-        if ($exsaml:idp-unsolicited and $exsaml:idp-force-rs != "") then (
-            let $debug := exsaml:log("debug", "evaluated to: $exsaml:idp-unsolicited and $exsaml:idp-force-rs != ''")
-            let $debug := exsaml:log("debug", "$exsaml:idp-force-rs is: " || $exsaml:idp-force-rs || " evaluated: " || string-length($exsaml:idp-force-rs) )
-            return
-                $exsaml:idp-force-rs
-        )
-        (: otherwise accept relaystate from the SAML response :)
-        else if ($rsin != "") then (
-            let $debug := exsaml:log("info", "Relay State as provided by SSO: " || $rsin)
-            return $rsin
-        ) else (
-            let $debug := exsaml:log("info", "no Relay State provided by SSO, switching to SP fallback relaystate: " || $exsaml:sp-fallback-rs)
-            return 
-                $exsaml:sp-fallback-rs
-        )
+    let $rsout := exsaml:determine-relay-state()
 
     (: Return an element with all SAML validation data to the controller.
        If SAML success, this is basically username and group membership.
@@ -248,6 +231,28 @@ declare function exsaml:process-saml-response-post-parsed($resp as node()) {
                 }  catch * {
                         <error>Caught error {$err:code}: {$err:description}. Data: {$err:value}</error>
                 }
+};
+
+declare function exsaml:determine-relay-state() {
+    let $rsin := request:get-parameter("RelayState", "")
+    let $rsout :=
+        (: if we accept IDP-initiated SAML *and* use a forced landing page :)
+        if ($exsaml:idp-unsolicited and $exsaml:idp-force-rs != "") then (
+            let $debug := exsaml:log("debug", "evaluated to: $exsaml:idp-unsolicited and $exsaml:idp-force-rs != ''")
+            let $debug := exsaml:log("debug", "$exsaml:idp-force-rs is: " || $exsaml:idp-force-rs || " evaluated: " || string-length($exsaml:idp-force-rs) )
+            return
+                $exsaml:idp-force-rs
+        )
+        (: otherwise accept relaystate from the SAML response :)
+        else if ($rsin != "") then (
+            let $debug := exsaml:log("info", "Relay State as provided by SSO: " || $rsin)
+            return $rsin
+        ) else (
+            let $debug := exsaml:log("info", "no Relay State provided by SSO, switching to SP fallback relaystate: " || $exsaml:sp-fallback-rs)
+            return
+                $exsaml:sp-fallback-rs
+        )
+    return $rsout
 };
 
 (: validate a SAML response message :)
