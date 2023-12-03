@@ -12,6 +12,7 @@ declare namespace xsi="http://www.w3.org/2001/XMLSchema-instance";
 (: additional modules needed for SAML processing :)
 import module namespace compression="http://exist-db.org/xquery/compression";
 import module namespace crypto="http://expath.org/ns/crypto";
+import module namespace semver="http://exist-db.org/xquery/semver";
 
 (: other modules :)
 (:import module namespace console="http://exist-db.org/xquery/console";:)
@@ -58,6 +59,9 @@ declare %private variable $exsaml:status-success := "urn:oasis:names:tc:SAML:2.0
 declare %private variable $exsaml:status-badauth := "urn:oasis:names:tc:SAML:2.0:status:AuthnFailed";
 declare variable $exsaml:ERROR :=  xs:QName("saml:error");
 
+(: quirks :)
+(: eXist-db >= 5.3.0 returns a parsed XML fragment wrapped in a document node, earlier versions did not :)
+declare variable $exsaml:quirk-pre53-parsexmlfragment := semver:lt(system:get-version(), "5.3");
 
 (: may be used to check if SAML is enabled at all :)
 declare function exsaml:is-enabled() {
@@ -161,25 +165,25 @@ declare %private function exsaml:store-authnreqid($id as xs:string, $instant as 
 declare function exsaml:process-saml-response-post() {
     let $log  := exsaml:log("info", "process-saml-response-post")
     let $saml-resp := request:get-parameter("SAMLResponse", "error")
-
-    let $resp := if($saml-resp = "error")
-                    then ($saml-resp)
-                    else (
-                        let $decode-resp := util:base64-decode($saml-resp)
-                        return
-                            fn:parse-xml-fragment($decode-resp)
-                    )
-
-    let $debug := exsaml:log("debug", "START SAML RESPONSE ")
-    let $debug := exsaml:log("debug", $resp)
-    let $debug := exsaml:log("debug", "END SAML RESPONSE ")
-
     return
-        if($resp = "error")
-            then (
-                error($exsaml:ERROR, "Empty SAML Response", "No SAML response data has been provided")
-            )
-            else (
+        if ($saml-resp = "error")
+        then (
+            error($exsaml:ERROR, "Empty SAML Response", "No SAML response data has been provided")
+        )
+        else (
+            let $parsed-resp := fn:parse-xml-fragment(util:base64-decode($saml-resp))
+            let $real-resp   :=
+                if ($exsaml:quirk-pre53-parsexmlfragment)
+                then $parsed-resp
+                else $parsed-resp/samlp:Response
+            return
+                exsaml:process-saml-response-post-parsed($real-resp)
+        )
+};
+
+declare function exsaml:process-saml-response-post-parsed($resp as node()) {
+    let $log  := exsaml:log("debug", "process-saml-response-parsed: response: " || $resp)
+
                 try {
     let $res  := exsaml:validate-saml-response($resp)
                     return
@@ -244,7 +248,6 @@ declare function exsaml:process-saml-response-post() {
                 }  catch * {
                         <error>Caught error {$err:code}: {$err:description}. Data: {$err:value}</error>
                 }
-            )
 };
 
 (: validate a SAML response message :)
