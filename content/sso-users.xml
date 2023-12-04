@@ -1,0 +1,43 @@
+<sso-users>
+
+    <!-- NOTE: groups specified here MUST exist, they are not auto-created -->
+
+    <!-- NOTE: this is no access or privilege control configuration.
+         It is used to assign group membership based on recognized user names. -->
+
+    <!-- a REALM-NAME is just an identifier string -->
+    <!-- user/@user is the nameid string that SAML authenticates -->
+    <!-- user/@group primary group is mandatory, groups is optional -->
+
+<!-- sample user, two realms
+    <user>
+        <REALM-NAME-1 user="user@example.com" group="devs">
+            <groups/>
+        </REALM-NAME-1>
+        <REALM-NAME-2 user="user@example.com" group="editors">
+            <groups>
+	        <group>devs</group>
+            </groups>
+        </REALM-NAME-2>
+    </user>
+-->
+
+<!-- this sample user is not defined for REALM-NAME-2
+    <user>
+        <REALM-NAME-1 user="user2@example.com" group="devs">
+            <groups/>
+        </REALM-NAME-1>
+    </user>
+-->
+
+    <!-- fallback defaults for unspecified usernames, per realm - DO NOT REMOVE -->
+    <user>
+        <REALM-NAME-1 user="default-user" group="nogroup">
+            <groups/>
+        </REALM-NAME-1>
+        <REALM-NAME-2 user="default-user" group="nogroup">
+            <groups/>
+        </REALM-NAME-2>
+    </user>
+
+</sso-users>
