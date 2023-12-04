@@ -14,15 +14,13 @@ import module namespace compression="http://exist-db.org/xquery/compression";
 import module namespace crypto="http://expath.org/ns/crypto";
 import module namespace semver="http://exist-db.org/xquery/semver";
 
-(: other modules :)
-(:import module namespace console="http://exist-db.org/xquery/console";:)
-
 declare variable $exsaml:version := doc("../expath-pkg.xml")/*:package/@version/string();
 
 (: pull config from config-exsaml.xml :)
 (: NEED TO CHECK IF CONFIG EXISTS :)
 declare %private variable $exsaml:config   := doc("config-exsaml.xml")/config;
 
+declare %private variable $exsaml:debug    := data($exsaml:config/@debug);
 declare %private variable $exsaml:sp-ent   := data($exsaml:config/sp/@entity);
 declare %private variable $exsaml:sp-uri   := data($exsaml:config/sp/@endpoint);
 declare %private variable $exsaml:sp-fallback-rs := data($exsaml:config/sp/@fallback-relaystate);
@@ -665,7 +663,12 @@ declare %private function exsaml:gen-id() {
 
 (: generic log function, returns true for easy use in if constructs :)
 declare function exsaml:log($level as xs:string, $msg as xs:string) {
-(:    let $l := console:log("exsaml: " || $msg):)
-    let $l := util:log($level, "exsaml: " || $msg)
+    let $l :=
+        if ($exsaml:debug eq 'true')
+        then (
+            util:log('info', "exsaml-debug: " || $msg)
+        ) else (
+            util:log($level, "exsaml: " || $msg)
+        )
     return true()
 };
