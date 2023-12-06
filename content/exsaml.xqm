@@ -394,23 +394,22 @@ declare %private function exsaml:ensure-saml-user($nameid as xs:string, $realm a
         ) else (
             $allusers[@user='default-user']
         )
+    let $user-exists := suexec(sm:user-exists#1, [$nameid])
 
     return
-        if (not(sm:user-exists($nameid))) then (
+        if (not($user-exists)) then (
             let $log := util:log("info", "create new user account " || $nameid || ", group " || data($userdata/@group))
             let $pass := exsaml:create-user-password($nameid)
             return
-              system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
-                             sm:create-account($nameid, $pass, data($userdata/@group), data($userdata/groups/group)))
+                exsaml:suexec(sm:create-account#4, [$nameid, $pass, data($userdata/@group), data($userdata/groups/group)])
         ) else (
             (: user exists, ensure group membership :)
-            let $usergroups := sm:get-user-groups($nameid)
+            let $usergroups := exsaml:suexec(sm:get-user-groups#1, [$nameid])
             for $g in data($userdata/groups/group)
             return
                 if (not($g = $usergroups)) then (
-                    util:log("info", "add user " || $nameid || "to group " || $g),
-                    system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
-                                   sm:add-group-member($g, $nameid))
+                    let $log := util:log("info", "add user " || $nameid || "to group " || $g)
+                    return exsaml:suexec(sm:add-group-member#2, [$g, $nameid])
                 ) else ()
         )
 };
@@ -426,22 +425,16 @@ declare %private function exsaml:create-user-password($nameid as xs:string) {
 
 (: ==== FUNCTIONS TO DEAL WITH REQUEST IDS ==== :)
 
-(: store issued request ids in a collection,  :)
+(: store issued request ids in a collection :)
 declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:string) {
     let $log := exsaml:log("info", "storing SAML request id: " || $id || ", date: " || $instant)
     return
-        system:as-user(
-                        $exsaml:exsaml-user,
-                        $exsaml:exsaml-pass,
-                        exsaml:store-authnreqid-privileged($id, $instant)
-        )
+        exsaml:suexec(exsaml:store-authnreqid-privileged#2, [$id, $instant])
 };
 
 declare %private function exsaml:store-authnreqid-privileged($id as xs:string, $instant as xs:string) {
     let $create-collection :=
-        if (
-	    not(xmldb:collection-available($exsaml:saml-coll-reqid))
-	)
+        if (not(xmldb:collection-available($exsaml:saml-coll-reqid)))
         then (
             let $log := exsaml:log("info", "collection " || $exsaml:saml-coll-reqid || " does not exist, attempting to create it")
             return
@@ -456,13 +449,12 @@ declare %private function exsaml:store-authnreqid-privileged($id as xs:string, $
 declare %private function exsaml:check-authnreqid($reqid as xs:string) {
     let $log := exsaml:log("info", "verifying SAML request id: " || $reqid)
     return
-        system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
-                       exsaml:check-authnreqid-privileged($reqid))
+        exsaml:suexec(exsaml:check-authnreqid-privileged#1, [$reqid])
 };
 
 declare %private function exsaml:check-authnreqid-privileged($reqid as xs:string) {
     if (exists(doc($exsaml:saml-coll-reqid||"/"||$reqid))
-        and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))
+        and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid))))
     then $reqid
     else ""
 };
@@ -633,6 +625,12 @@ declare %private function exsaml:build-saml-fakeresp($req as node()) {
 
 
 (: ==== UTIL FUNCTIONS ==== :)
+
+(: execute a function as privileged exsaml user, to call certain sm: functions :)
+declare %private function exsaml:suexec($function as function(*), $args as array(*)) as item()*{
+    system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
+                   fn:apply($function, $args))
+};
 
 (: generate a SAML ID :)
 (: which is xs:ID which is xsd:NCName which MUST NOT start with a number :)
