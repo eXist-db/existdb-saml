@@ -186,7 +186,7 @@ declare function exsaml:process-saml-response-post() {
 
 declare %private function exsaml:process-saml-response-post-parsed($resp as node()) {
     let $log  := exsaml:log("debug", "process-saml-response-parsed: response: " || $resp)
-
+    return
     try {
         let $res  := exsaml:validate-saml-response($resp)
         return
