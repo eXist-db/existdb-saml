@@ -129,33 +129,6 @@ declare %private function exsaml:build-saml-authnreq() {
     return $req
 };
 
-declare %private function exsaml:store-authnreqid-as-exsol-user($id as xs:string, $instant as xs:string) {
-    let $create-collection :=
-        if (
-	    not(xmldb:collection-available($exsaml:saml-coll-reqid))
-	)
-        then (
-            let $log := exsaml:log("info", "collection " || $exsaml:saml-coll-reqid || " does not exist, attempting to create it")
-            return
-                xmldb:create-collection("/db/apps/existdb-saml", "saml-request-ids")
-        )
-        else ()
-    return
-        xmldb:store($exsaml:saml-coll-reqid, $id, <reqid>{$instant}</reqid>)
-  
-};
-
-(: store issued request ids in a collection,  :)
-declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:string) {
-    let $log := exsaml:log("info", "storing SAML request id: " || $id || ", date: " || $instant)
-    return
-        system:as-user(
-                        $exsaml:exsaml-user,
-                        $exsaml:exsaml-pass,
-                        exsaml:store-authnreqid-as-exsol-user($id, $instant)
-        )
-};
-
 (: ==== FUNCTIONS TO PROCESS AND VALIDATE A SAML AUTHN RESPONSE ==== :)
 
 (:~
@@ -376,16 +349,6 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
     )
 };
 
-(: retrieve issued SAML request id and delete if answered :)
-declare %private function exsaml:check-authnreqid($reqid as xs:string) {
-    let $log := exsaml:log("info", "verifying SAML request id: " || $reqid)
-    return
-        if (system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
-                exists(doc($exsaml:saml-coll-reqid||"/"||$reqid)) and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))) then
-            $reqid
-        else ""
-};
-
 (: verify XML signature of a SAML response :)
 declare %private function exsaml:verify-response-signature($resp as item()) {
     let $log  := exsaml:log("debug", "verify-response-signature: " || $resp)
@@ -458,6 +421,50 @@ declare %private function exsaml:create-user-password($nameid as xs:string) {
     let $alg  := $exsaml:hmac-alg || ""
     let $pass := crypto:hmac($nameid, $key, $alg, "hex")
     return $pass
+};
+
+
+(: ==== FUNCTIONS TO DEAL WITH REQUEST IDS ==== :)
+
+(: store issued request ids in a collection,  :)
+declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:string) {
+    let $log := exsaml:log("info", "storing SAML request id: " || $id || ", date: " || $instant)
+    return
+        system:as-user(
+                        $exsaml:exsaml-user,
+                        $exsaml:exsaml-pass,
+                        exsaml:store-authnreqid-privileged($id, $instant)
+        )
+};
+
+declare %private function exsaml:store-authnreqid-privileged($id as xs:string, $instant as xs:string) {
+    let $create-collection :=
+        if (
+	    not(xmldb:collection-available($exsaml:saml-coll-reqid))
+	)
+        then (
+            let $log := exsaml:log("info", "collection " || $exsaml:saml-coll-reqid || " does not exist, attempting to create it")
+            return
+                xmldb:create-collection("/db/apps/existdb-saml", "saml-request-ids")
+        )
+        else ()
+    return
+        xmldb:store($exsaml:saml-coll-reqid, $id, <reqid>{$instant}</reqid>)
+};
+
+(: retrieve issued SAML request id and delete if answered :)
+declare %private function exsaml:check-authnreqid($reqid as xs:string) {
+    let $log := exsaml:log("info", "verifying SAML request id: " || $reqid)
+    return
+        system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
+                       exsaml:check-authnreqid-privileged($reqid))
+};
+
+declare %private function exsaml:check-authnreqid-privileged($reqid as xs:string) {
+    if (exists(doc($exsaml:saml-coll-reqid||"/"||$reqid))
+        and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))
+    then $reqid
+    else ""
 };
 
 
