@@ -96,20 +96,17 @@ declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) {
 declare function exsaml:build-authnreq-redir-url($relaystate as xs:string, $realm as xs:string) {
     let $log := exsaml:log("info", "building SAML auth request redir-url; relaystate: " || $relaystate || " - realm: " || $realm)
     let $req := exsaml:build-saml-authnreq()
-    let $log := exsaml:log("debug", "build-authnreq-redir-url; req: " || $req)
+    let $log := exsaml:log("debug", "build-authnreq-redir-url; authnreq: " || $req)
 
     (: deflate and base64 encode request :)
     let $ser := fn:serialize($req)
-(:    let $log := exsaml:log("debug", "build-authnreq-redir-url; ser: " || $ser):)
     let $bin := util:string-to-binary($ser)
-(:    let $log := exsaml:log("debug", "build-authnreq-redir-url; bin: " || $bin):)
     let $zip := compression:deflate($bin, true())
-(:    let $log := exsaml:log("debug", "build-authnreq-redir-url; zip: " || $zip):)
     (: urlencode base64 request data :)
     let $urlenc := xmldb:encode($zip)
 
-    let $log := exsaml:log("debug", "build-authnreq-redir-url; urlenc: " || $urlenc)
     let $rs := $realm || "#" || $relaystate
+    let $log := exsaml:log("debug", "build-authnreq-redir-url; realm: " || $realm || " relaystate: " || $rs || " urlenc: " || $urlenc)
 
     return $exsaml:idp-uri || "?SAMLRequest=" || $urlenc || "&amp;RelayState=" || xmldb:encode($rs)
 };
@@ -192,7 +189,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
 
                 let $pass := exsaml:create-user-password($auth/@nameid)
                 let $log-in := xmldb:login("/db/apps", $auth/@nameid, $pass, true())
-                let $log := util:log("info", "login result: " || $log-in || ", " || fn:serialize(sm:id()))
+                let $log := exsaml:log("notice", "login result: " || $log-in || ", " || fn:serialize(sm:id()))
 
                 (: put SAML token into browser session :)
                 let $sesstok :=
@@ -220,10 +217,10 @@ declare %private function exsaml:determine-relay-state($rsin as xs:string) {
         )
         (: otherwise accept relaystate from the SAML response :)
         else if ($rsin != "") then (
-            let $debug := exsaml:log("info", "Relay State as provided by SSO: " || $rsin)
+            let $debug := exsaml:log("debug", "Relay State provided by SSO: " || $rsin)
             return $rsin
         ) else (
-            let $debug := exsaml:log("info", "no Relay State provided by SSO, switching to SP fallback relaystate: " || $exsaml:sp-fallback-rs)
+            let $debug := exsaml:log("debug", "no Relay State provided by SSO, using SP fallback relaystate: " || $exsaml:sp-fallback-rs)
             return
                 $exsaml:sp-fallback-rs
         )
@@ -232,7 +229,7 @@ declare %private function exsaml:determine-relay-state($rsin as xs:string) {
 
 (: validate a SAML response message :)
 declare %private function exsaml:validate-saml-response($resp as node()) {
-    let $log := exsaml:log("info", "validate-saml-response")
+    let $log := exsaml:log("debug", "validate-saml-response")
 
     let $as := $resp/saml:Assertion
     let $sig := $resp/ds:Signature
@@ -273,13 +270,13 @@ declare %private function exsaml:validate-saml-response($resp as node()) {
 declare %private function exsaml:validate-saml-assertion($assertion as item()) {
     if(empty($assertion))
     then (
-        let $log := exsaml:log("info", "Error: Empty Assertion")
+        let $log := exsaml:log("notice", "Error: Empty Assertion")
         return
             <exsaml:funcret res="-19" msg="no assertion present" />
 
     )
     else (
-        let $log := exsaml:log("info", "validate-saml-assertion: " || fn:serialize($assertion))
+        let $log := exsaml:log("debug", "validate-saml-assertion: " || fn:serialize($assertion))
         let $sig := $assertion/ds:Signature
         let $subj-confirm-data := $assertion/saml:Subject/saml:SubjectConfirmation/saml:SubjectConfirmationData
         let $conds := $assertion/saml:Conditions
@@ -398,7 +395,7 @@ declare %private function exsaml:ensure-saml-user($nameid as xs:string, $realm a
 
     return
         if (not($user-exists)) then (
-            let $log := util:log("info", "create new user account " || $nameid || ", group " || data($userdata/@group))
+            let $log := exsaml:log("notice", "create new user account " || $nameid || ", group " || data($userdata/@group))
             let $pass := exsaml:create-user-password($nameid)
             return
                 exsaml:suexec(sm:create-account#4, [$nameid, $pass, data($userdata/@group), data($userdata/groups/group)])
@@ -408,7 +405,7 @@ declare %private function exsaml:ensure-saml-user($nameid as xs:string, $realm a
             for $g in data($userdata/groups/group)
             return
                 if (not($g = $usergroups)) then (
-                    let $log := util:log("info", "add user " || $nameid || "to group " || $g)
+                    let $log := exsaml:log("notice", "add user " || $nameid || "to group " || $g)
                     return exsaml:suexec(sm:add-group-member#2, [$g, $nameid])
                 ) else ()
         )
@@ -427,7 +424,7 @@ declare %private function exsaml:create-user-password($nameid as xs:string) {
 
 (: store issued request ids in a collection :)
 declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:string) {
-    let $log := exsaml:log("info", "storing SAML request id: " || $id || ", date: " || $instant)
+    let $log := exsaml:log("debug", "storing SAML request id: " || $id || ", date: " || $instant)
     return
         exsaml:suexec(exsaml:store-authnreqid-privileged#2, [$id, $instant])
 };
@@ -447,7 +444,7 @@ declare %private function exsaml:store-authnreqid-privileged($id as xs:string, $
 
 (: retrieve issued SAML request id and delete if answered :)
 declare %private function exsaml:check-authnreqid($reqid as xs:string) {
-    let $log := exsaml:log("info", "verifying SAML request id: " || $reqid)
+    let $log := exsaml:log("debug", "verifying SAML request id: " || $reqid)
     return
         exsaml:suexec(exsaml:check-authnreqid-privileged#1, [$reqid])
 };
@@ -643,7 +640,7 @@ declare %private function exsaml:gen-id() {
 declare function exsaml:log($level as xs:string, $msg as xs:string) {
     let $l :=
         if ($exsaml:debug eq 'true')
-        then (
+xsz        then (
             util:log('info', "exsaml-debug: " || $msg)
         ) else (
             util:log($level, "exsaml: " || $msg)
