@@ -33,7 +33,6 @@ declare %private variable $exsaml:idp-verify-issuer := data($exsaml:config/idp/@
 
 declare %private variable $exsaml:hmac-key := data($exsaml:config/crypto/@hmac-key);
 declare %private variable $exsaml:hmac-alg := data($exsaml:config/crypto/@hmac-alg);
-declare %private variable $exsaml:group-attr     := $exsaml:config/group-attribute/text();
 declare %private variable $exsaml:token-minutes  := data($exsaml:config/token/@valid-mins);
 declare %private variable $exsaml:token-name     := data($exsaml:config/token/@name);
 declare %private variable $exsaml:token-separator := "=";
@@ -209,11 +208,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
                     attribute nameid { $resp/saml:Assertion/saml:Subject/saml:NameID },
                     attribute realm  { $realm },
                     attribute relaystate { $relayurl },
-                    attribute authndate  { $resp/saml:Assertion/@IssueInstant },
-                    element { "groups" } {
-                        for $i in exsaml:fetch-saml-attribute-values($exsaml:group-attr, $resp/saml:Assertion)
-                        return element { "group" } { $i }
-                    }
+                    attribute authndate  { $resp/saml:Assertion/@IssueInstant }
                 }
 
                 (: create SAML user if not exists yet :)
@@ -423,18 +418,6 @@ declare %private function exsaml:verify-assertion-signature($assertion as item()
     return $res
 };
 
-(: Fetch the named SAML attribute values from a SAML assertion.  This is
-   used to get group membership of an authenticated user, which gets passed
-   as SAML attribute assertions by the IDP :)
-declare %private function exsaml:fetch-saml-attribute-values($attrname as xs:string, $as as node()) {
-    let $log := exsaml:log("debug", "fetch-saml-attribute " || $attrname || ", " || fn:serialize($as))
-    let $seq :=
-        for $a in $as/saml:AttributeStatement/saml:Attribute[@Name=$attrname]/saml:AttributeValue
-        return $a/text()
-    let $log := exsaml:log("debug", "fetch-saml-attribute: " || fn:serialize($seq))
-    return $seq
-};
-
 (: This function is used to create the named DB user on the fly if the
    account does not exist yet.  Since we rely on SAML to assert that a
    certain username is valid, we have no list of usernames upfront, but
@@ -633,16 +616,6 @@ declare %private function exsaml:build-saml-fakeresp($req as node()) {
                 attribute SessionIndex { exsaml:gen-id() },
                 element { "saml:AuthnContext" } {
                     element { "saml:AuthnContextClassRef" } { "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport" }
-                }
-            },
-            element { "saml:AttributeStatement" } {
-                element { "saml:Attribute" } {
-                    attribute Name { $exsaml:group-attr },
-                    attribute NameFormat { "urn:oasis:names:tc:SAML:2.0:attrname-format:basic" },
-                    element { "saml:AttributeValue" } {
-                        attribute xsi:type { "xs:string" },
-                        $exsaml:fake-group
-                    }
                 }
             }
         }

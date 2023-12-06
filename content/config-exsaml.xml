@@ -64,12 +64,6 @@
     <sso-users create-users="false" data="/db/apps/existdb-saml/sso-users.xml"
 	       default-realm="REALM-NAME-1"/>
 
-    <!-- group-attribute -->
-    <!-- This defines a SAML attribute name that is used specify group
-         membership, if the IDP passes this information as SAML attribute
-         assertion -->
-    <group-attribute>sso-user</group-attribute>
-
     <!-- fake IDP for debugging, if no real IDP is available -->
     <!-- Should be empty for production use.  If this is non-empty AND
          idp/@ep above points to the local server, then a fake SAML assertion
