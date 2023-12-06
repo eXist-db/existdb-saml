@@ -59,7 +59,7 @@ declare variable $exsaml:ERROR :=  xs:QName("saml:error");
 
 (: quirks :)
 (: eXist-db >= 5.3.0 returns a parsed XML fragment wrapped in a document node, earlier versions did not :)
-declare variable $exsaml:quirk-pre53-parsexmlfragment := semver:lt(system:get-version(), "5.3");
+declare variable $exsaml:quirk-pre53-parsexmlfragment := semver:lt(system:get-version(), "5.3.0");
 
 (: may be used to check if SAML is enabled at all :)
 declare function exsaml:is-enabled() {
