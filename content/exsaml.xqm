@@ -136,7 +136,7 @@ declare %private function exsaml:build-saml-authnreq() {
  : so the user can be redirected to the requested resource.
  :)
 declare function exsaml:process-saml-response-post() {
-    let $log := exsaml:log("info", "process-saml-response-post")
+    let $log := exsaml:log("debug", "process-saml-response-post")
     let $saml-resp := request:get-parameter("SAMLResponse", "error")
     return
         if ($saml-resp = "error")
@@ -197,8 +197,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
                         exsaml:set-saml-token($auth/@nameid, $auth/@authndate)
                     else ()
 
-                let $debug := exsaml:log("info", "finished exsaml:process-saml-response-post. auth: ")
-                let $debug := exsaml:log("info", fn:serialize($auth))
+                let $debug := exsaml:log("debug", "finished exsaml:process-saml-response-post. auth: " || fn:serialize($auth))
                 return $auth
             )
     } catch * {
@@ -210,8 +209,7 @@ declare %private function exsaml:determine-relay-state($rsin as xs:string) {
     let $rsout :=
         (: if we accept IDP-initiated SAML *and* use a forced landing page :)
         if ($exsaml:idp-unsolicited and $exsaml:idp-force-rs != "") then (
-            let $debug := exsaml:log("debug", "evaluated to: $exsaml:idp-unsolicited and $exsaml:idp-force-rs != ''")
-            let $debug := exsaml:log("debug", "$exsaml:idp-force-rs is: " || $exsaml:idp-force-rs || " evaluated: " || string-length($exsaml:idp-force-rs) )
+            let $debug := exsaml:log("debug", "forced Relay State: " || $exsaml:idp-force-rs)
             return
                 $exsaml:idp-force-rs
         )
