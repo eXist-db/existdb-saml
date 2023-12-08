@@ -61,7 +61,7 @@
     <!--   @create-users: either "true" (create local DB users) or "false" (do not) -->
     <!--   @data: XML data file specifying users and groups -->
     <!--   @default-realm: default SSO realm if not specified -->
-    <sso-users create-users="false" data="/db/apps/existdb-saml/sso-users.xml"
+    <sso-users create-users="false" data="/db/apps/existdb-saml/content/sso-users.xml"
 	       default-realm="REALM-NAME-1"/>
 
     <!-- fake IDP for debugging, if no real IDP is available -->
