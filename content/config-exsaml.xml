@@ -41,7 +41,7 @@
          should be avoided.  Reasonable values might be 5-30. -->
     <!--   @valid-mins: validity duration of an auth token in minutes -->
     <!--   @name: name to store the token into session parameters -->
-    <token valid-mins="5" name="_token"/>
+    <token valid-mins="5" name="exsaml_token"/>
 
     <!-- credentials for special user "exsaml".  This is a privileged user
          in group "dba", needed for 2 purposes:
