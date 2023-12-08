@@ -1,4 +1,4 @@
-<!-- To disable SAML authentication, set @enabled="false" -->
+<!-- Disabled by default. To enable SAML authentication, set @enabled="true" -->
 <config enabled="false" debug="false">
 
     <!-- In SAML terminology, the eXist DB is the "service provider" (SP)
@@ -7,18 +7,16 @@
          "entity" names in requests/responses and to validate the peer's entity.
          Also the URI endpoints of both peers need to be configured here. -->
 
-    <!-- SERVICE PROVIDER CONFIGURATION  -->
-
+    <!-- SERVICE PROVIDER CONFIGURATION -->
     <!-- sp (service provider) is our local eXist DB -->
     <!--   @entity: just a namestring in URI format -->
     <!--   @endpoint: our HTTP endpoint to post SAML responses to -->
-    <!--   @fallback-relaystate: used if IdP does not send a relaystate -->
+    <!--   @fallback-relaystate: used if IDP does not send a relaystate -->
+    <sp entity="https://service-provider.example.org"
+        endpoint="https://service-provider.example.org/SAML2SP"
+        fallback-relaystate="https://service-provider.example.org"/>
 
-    <!-- SERVICE PROVIDER CONFIGURATION  -->
-    <sp entity="https://service-provider.org" endpoint="https://service-provider.org/SAML2SP" fallback-relaystate="https://service-provider.org"/>
-
-
-    <!-- IDENTITY PROVIDER -->
+    <!-- IDENTITY PROVIDER CONFIGURATION -->
     <!-- idp (identity provider) is a remote SAML IDP, eg PingFederate -->
     <!--   @entity: their namestring in URI format -->
     <!--   @endpoint: their HTTP endpoint to send SAML requests to -->
@@ -27,7 +25,12 @@
     <!--   @certfile: required for XML signature validation if sig sent by IDP -->
     <!--   @verify-issuer: is a hack to deal with misconfigured IDPs -->
 
-    <idp entity="https://sso.endpoint.org/entity" endpoint="https://sso.endpoint.org/idp/SSO.saml2" accept-unsolicited="false" force-relaystate="" certfile="/usr/local/existdb/exist/cert/sso-prod.crt" verify-issuer="true"/>
+    <idp entity="https://sso.endpoint.example.org/entity"
+         endpoint="https://sso.endpoint.example.org/idp/SSO.saml2"
+         accept-unsolicited="false"
+         force-relaystate=""
+         certfile="/usr/local/existdb/exist/cert/sso-prod.crt"
+         verify-issuer="true"/>
 
     <!-- crypto settings -->
     <!--   @hmac-key: server-side secret key for HMACs -->
@@ -61,8 +64,9 @@
     <!--   @create-users: either "true" (create local DB users) or "false" (do not) -->
     <!--   @data: XML data file specifying users and groups -->
     <!--   @default-realm: default SSO realm if not specified -->
-    <sso-users create-users="false" data="/db/apps/existdb-saml/content/sso-users.xml"
-	       default-realm="REALM-NAME-1"/>
+    <sso-users create-users="false"
+               data="/db/apps/existdb-saml/content/sso-users.xml"
+               default-realm="REALM-NAME-1"/>
 
     <!-- fake IDP for debugging, if no real IDP is available -->
     <!-- Should be empty for production use.  If this is non-empty AND
