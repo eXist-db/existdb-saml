@@ -156,8 +156,6 @@ declare function exsaml:process-saml-response-post() {
 
 declare %private function exsaml:process-saml-response-post-parsed($resp as node()) {
     let $log  := exsaml:log("debug", "process-saml-response-parsed: response: " || $resp)
-    return
-    try {
         let $res  := exsaml:validate-saml-response($resp)
         return
             if ($res/@res < 0)
@@ -200,9 +198,6 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
                 let $debug := exsaml:log("debug", "finished exsaml:process-saml-response-post. auth: " || fn:serialize($auth))
                 return $auth
             )
-    } catch * {
-        <error>Caught error {$err:code}: {$err:description}. Data: {$err:value}</error>
-    }
 };
 
 declare %private function exsaml:determine-relay-state($rsin as xs:string) {
