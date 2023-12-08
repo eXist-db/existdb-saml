@@ -389,7 +389,7 @@ declare %private function exsaml:ensure-saml-user($nameid as xs:string, $realm a
         ) else (
             $allusers[@user='default-user']
         )
-    let $user-exists := suexec(sm:user-exists#1, [$nameid])
+    let $user-exists := exsaml:suexec(sm:user-exists#1, [$nameid])
 
     return
         if (not($user-exists)) then (
@@ -449,7 +449,7 @@ declare %private function exsaml:check-authnreqid($reqid as xs:string) {
 
 declare %private function exsaml:check-authnreqid-privileged($reqid as xs:string) {
     if (exists(doc($exsaml:saml-coll-reqid||"/"||$reqid))
-        and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid))))
+        and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))
     then $reqid
     else ""
 };
@@ -638,7 +638,7 @@ declare %private function exsaml:gen-id() {
 declare function exsaml:log($level as xs:string, $msg as xs:string) {
     let $l :=
         if ($exsaml:debug eq 'true')
-xsz        then (
+        then (
             util:log('info', "exsaml-debug: " || $msg)
         ) else (
             util:log($level, "exsaml: " || $msg)
