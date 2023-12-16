@@ -156,11 +156,11 @@ declare function exsaml:process-saml-response-post() {
 
 declare %private function exsaml:process-saml-response-post-parsed($resp as node()) {
     let $log  := exsaml:log("debug", "process-saml-response-parsed: response: " || $resp)
-        let $res  := exsaml:validate-saml-response($resp)
+        let $valresult  := exsaml:validate-saml-response($resp)
         return
-            if ($res/@res < 0)
+            if ($valresult/@res < 0)
             then (
-                $res
+                $valresult
             )
             else (
                 let $rsseq := fn:tokenize(request:get-parameter("RelayState", ""), "#")
@@ -171,8 +171,8 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
                    If SAML success, this is basically username and group membership.
                    IF SAML fail, pass enough info to allow meaningful error messages. :)
                 let $auth := element { "authresult" } {
-                    attribute code   { $res/@res },
-                    attribute msg    { $res/@msg },
+                    attribute code   { $valresult/@res },
+                    attribute msg    { $valresult/@msg },
                     attribute nameid { $resp/saml:Assertion/saml:Subject/saml:NameID },
                     attribute realm  { $realm },
                     attribute relaystate { $relayurl },
