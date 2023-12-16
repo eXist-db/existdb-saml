@@ -95,7 +95,7 @@ declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) {
 declare function exsaml:build-authnreq-redir-url($relaystate as xs:string, $realm as xs:string) {
     let $log := exsaml:log("info", "building SAML auth request redir-url; relaystate: " || $relaystate || " - realm: " || $realm)
     let $req := exsaml:build-saml-authnreq()
-    let $log := exsaml:log("debug", "build-authnreq-redir-url; authnreq: " || $req)
+    let $debug := exsaml:debug("build-authnreq-redir-url; authnreq: ", $req)
 
     (: deflate and base64 encode request :)
     let $ser := fn:serialize($req)
@@ -105,7 +105,7 @@ declare function exsaml:build-authnreq-redir-url($relaystate as xs:string, $real
     let $urlenc := xmldb:encode($zip)
 
     let $rs := $realm || "#" || $relaystate
-    let $log := exsaml:log("debug", "build-authnreq-redir-url; realm: " || $realm || " relaystate: " || $rs || " urlenc: " || $urlenc)
+    let $debug := exsaml:debug("build-authnreq-redir-url; realm: " || $realm || " relaystate: " || $rs || " urlenc: " || $urlenc)
 
     return $exsaml:idp-uri || "?SAMLRequest=" || $urlenc || "&amp;RelayState=" || xmldb:encode($rs)
 };
@@ -135,7 +135,7 @@ declare %private function exsaml:build-saml-authnreq() {
  : so the user can be redirected to the requested resource.
  :)
 declare function exsaml:process-saml-response-post() {
-    let $log := exsaml:log("debug", "process-saml-response-post")
+    let $debug := exsaml:debug("process-saml-response-post")
     let $saml-resp := request:get-parameter("SAMLResponse", "NONE")
     return
         if ($saml-resp = "NONE")
@@ -160,8 +160,8 @@ declare function exsaml:process-saml-response-post() {
  : so the user can be redirected to the requested resource.
  :)
 declare %private function exsaml:process-saml-response-post-parsed($resp as node()) {
-    let $log  := exsaml:log("debug", "process-saml-response-parsed: response: " || $resp)
-    let $valresult  := exsaml:validate-saml-response($resp)
+    let $debug := exsaml:debug("process-saml-response-parsed; response: ", $resp)
+    let $valresult := exsaml:validate-saml-response($resp)
     return
         if ($valresult/@res < 0)
         then (
@@ -200,7 +200,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
                     exsaml:set-saml-token($auth/@nameid, $auth/@authndate)
                 else ()
 
-            let $debug := exsaml:log("debug", "finished exsaml:process-saml-response-post. auth: " || fn:serialize($auth))
+            let $debug := exsaml:debug("finished exsaml:process-saml-response-post; auth: ", $auth)
             return $auth
         )
 };
@@ -215,27 +215,27 @@ declare %private function exsaml:determine-relay-state($rsin as xs:string) {
     let $rsout :=
         (: if we accept IDP-initiated SAML *and* use a forced landing page :)
         if ($exsaml:idp-unsolicited and $exsaml:idp-force-rs ne "") then (
-            let $debug := exsaml:log("debug", "forced Relay State: " || $exsaml:idp-force-rs)
+            let $debug := exsaml:debug("forced Relay State: " || $exsaml:idp-force-rs)
             return
                 $exsaml:idp-force-rs
         )
         (: otherwise accept relaystate from the SAML response :)
         else if ($rsin ne "") then (
-            let $debug := exsaml:log("debug", "Relay State provided by SSO: " || $rsin)
+            let $debug := exsaml:debug("Relay State provided by SSO: " || $rsin)
             return
                 $rsin
         ) else (
-            let $debug := exsaml:log("debug", "no Relay State provided by SSO, using SP fallback relaystate: " || $exsaml:sp-fallback-rs)
+            let $debug := exsaml:debug("no Relay State provided by SSO, using SP fallback relaystate: " || $exsaml:sp-fallback-rs)
             return
                 $exsaml:sp-fallback-rs
         )
-    let $debug := exsaml:log("debug", "final Relay State: " || $rsout)
+    let $debug := exsaml:debug("final Relay State: " || $rsout)
     return $rsout
 };
 
 (: validate a SAML response message :)
 declare %private function exsaml:validate-saml-response($resp as node()) {
-    let $log := exsaml:log("debug", "validate-saml-response")
+    let $debug := exsaml:debug("validate-saml-response")
 
     let $as := $resp/saml:Assertion
     let $sig := $resp/ds:Signature
@@ -282,7 +282,7 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
 
     )
     else (
-        let $log := exsaml:log("debug", "validate-saml-assertion: " || fn:serialize($assertion))
+        let $debug := exsaml:debug("validate-saml-assertion; assertion: ", $assertion)
         let $sig := $assertion/ds:Signature
         let $subj-confirm-data := $assertion/saml:Subject/saml:SubjectConfirmation/saml:SubjectConfirmationData
         let $conds := $assertion/saml:Conditions
@@ -357,7 +357,7 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
 
 (: verify XML signature of a SAML response :)
 declare %private function exsaml:verify-response-signature($resp as item()) {
-    let $log  := exsaml:log("debug", "verify-response-signature: " || $resp)
+    let $debug := exsaml:debug("verify-response-signature; response: ", $resp)
     let $res :=
         (: if $idp-certfile is configured, use that to validate XML signature :)
         if ($exsaml:idp-certfile ne "") then (
@@ -373,7 +373,7 @@ declare %private function exsaml:verify-response-signature($resp as item()) {
 
 (: verify XML signature of a SAML assertion :)
 declare %private function exsaml:verify-assertion-signature($assertion as item()) {
-    let $log  := exsaml:log("debug", "verify-assertion-signature " || $assertion)
+    let $debug := exsaml:debug("verify-assertion-signature; assertion: ", $assertion)
     let $res :=
         (: if $idp-certfile is configured, use that to validate XML signature :)
         if ($exsaml:idp-certfile ne "") then (
@@ -433,7 +433,7 @@ declare %private function exsaml:create-user-password($nameid as xs:string) {
 
 (: store issued request ids in a collection :)
 declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:string) {
-    let $log := exsaml:log("debug", "storing SAML request id: " || $id || ", date: " || $instant)
+    let $debug := exsaml:debug("storing SAML request id: " || $id || ", date: " || $instant)
     return
         exsaml:suexec(exsaml:store-authnreqid-privileged#2, [$id, $instant])
 };
@@ -453,7 +453,7 @@ declare %private function exsaml:store-authnreqid-privileged($id as xs:string, $
 
 (: retrieve issued SAML request id and delete if answered :)
 declare %private function exsaml:check-authnreqid($reqid as xs:string) {
-    let $log := exsaml:log("debug", "verifying SAML request id: " || $reqid)
+    let $debug := exsaml:debug("verifying SAML request id: " || $reqid)
     return
         exsaml:suexec(exsaml:check-authnreqid-privileged#1, [$reqid])
 };
@@ -473,8 +473,8 @@ declare %private function exsaml:check-authnreqid-privileged($reqid as xs:string
  : This is called from the controller(s) to check if access should be granted.
  :)
 declare function exsaml:check-valid-saml-token() {
-    let $raw  := session:get-attribute($exsaml:token-name)
-    let $log  := exsaml:log("debug", "checking saml token, name: " || $exsaml:token-name || ", value: " || $raw)
+    let $raw := session:get-attribute($exsaml:token-name)
+    let $debug := exsaml:debug("checking saml token, name: " || $exsaml:token-name || ", value: " || $raw)
 
     let $tokdata := fn:tokenize($raw, $exsaml:token-separator)
     return
@@ -507,7 +507,7 @@ declare function exsaml:invalidate-saml-token() {
 
 (: return the HMAC of the string token passed in :)
 declare %private function exsaml:hmac-tokval($tokval as xs:string) as xs:string {
-    let $log  := exsaml:log("debug", "hmac-tokval; t: " || $tokval || ", key: " || $exsaml:hmac-key)
+    let $debug := exsaml:debug("hmac-tokval; t: " || $tokval || ", key: " || $exsaml:hmac-key)
     let $key  := $exsaml:hmac-key || ""
     let $alg  := $exsaml:hmac-alg || ""
 
@@ -516,7 +516,7 @@ declare %private function exsaml:hmac-tokval($tokval as xs:string) as xs:string 
 
 (: build string token: join nameid and validto by $exsaml:token-separator :)
 declare %private function exsaml:build-string-token($nameid as xs:string, $validto as xs:string) as xs:string {
-    let $log  := exsaml:log("debug", "build-string-token; n: " || $nameid || ", v: " || $validto)
+    let $debug := exsaml:debug("build-string-token; n: " || $nameid || ", v: " || $validto)
     return $nameid || $exsaml:token-separator || $validto
 };
 
@@ -535,16 +535,16 @@ declare %private function exsaml:set-saml-token($nameid as xs:string, $authndate
 
 (: process SAML AuthnRequest, return SAML Response via POST :)
 declare function exsaml:process-saml-request() {
-    let $log  := exsaml:log("debug", "process-saml-request")
-    let $raw  := request:get-parameter("SAMLRequest", "")
-    let $log  := exsaml:log("debug", "process-saml-request; raw: " || $raw)
+    let $debug := exsaml:debug("process-saml-request")
+    let $raw := request:get-parameter("SAMLRequest", "")
+    let $debug := exsaml:debug("process-saml-request; raw: " || $raw)
     let $uncomp := compression:inflate($raw, true())
-    let $log  := exsaml:log("debug", "process-saml-request; uncomp: " || $uncomp)
+    let $debug := exsaml:debug("process-saml-request; uncomp: " || $uncomp)
     let $strg := util:base64-decode($uncomp)
-    let $log  := exsaml:log("debug", "process-saml-request; strg: " || $strg)
-    let $req  := fn:parse-xml-fragment($strg)
-    let $log  := exsaml:log("debug", "process-saml-request; req: " || $req)
-    let $rs   := request:get-parameter("RelayState", false())
+    let $debug := exsaml:debug("process-saml-request; strg: " || $strg)
+    let $req := fn:parse-xml-fragment($strg)
+    let $debug := exsaml:debug("process-saml-request; req: ", $req)
+    let $rs := request:get-parameter("RelayState", false())
 
     let $resp := exsaml:fake-idp-response($req, $rs)
     return $resp
@@ -552,7 +552,7 @@ declare function exsaml:process-saml-request() {
 
 (: fake SAML IDP response: build response and return via XHTML autosubmit form :)
 declare %private function exsaml:fake-idp-response($req as node(), $rs as xs:string) {
-    let $log := exsaml:log("debug", "fake-idp-response")
+    let $debug := exsaml:debug("fake-idp-response")
     let $resp := exsaml:build-saml-fakeresp($req)
     let $b64resp := util:base64-encode(fn:serialize($resp))
 
@@ -647,12 +647,20 @@ declare %private function exsaml:gen-id() {
 
 (: generic log function, returns true for easy use in if constructs :)
 declare function exsaml:log($level as xs:string, $msg as xs:string) {
+    let $l := util:log($level, "exsaml: " || $msg)
+    return true()
+};
+
+(: generic debug functions :)
+declare function exsaml:debug($msg as xs:string, $data as item()) {
+    exsaml:debug($msg || fn:serialize($data))
+};
+
+declare function exsaml:debug($msg as xs:string) {
     let $l :=
         if ($exsaml:debug eq 'true')
         then (
             util:log('info', "exsaml-debug: " || $msg)
-        ) else (
-            util:log($level, "exsaml: " || $msg)
-        )
+        ) else ()
     return true()
 };
