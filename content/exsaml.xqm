@@ -391,11 +391,11 @@ declare %private function exsaml:ensure-saml-user($nameid as xs:string, $realm a
             let $log := exsaml:log("notice", "create new user account " || $nameid || ", group " || data($userdata/@group))
             let $pass := exsaml:create-user-password($nameid)
             return
-                exsaml:suexec(sm:create-account#4, [$nameid, $pass, data($userdata/@group), data($userdata/groups/group)])
+                exsaml:suexec(sm:create-account#4, [$nameid, $pass, data($userdata/@group), data($userdata/other-groups/group)])
         ) else (
             (: user exists, ensure group membership :)
             let $usergroups := exsaml:suexec(sm:get-user-groups#1, [$nameid])
-            for $g in data($userdata/groups/group)
+            for $g in data($userdata/other-groups/group)
             return
                 if (not($g = $usergroups)) then (
                     let $log := exsaml:log("notice", "add user " || $nameid || "to group " || $g)
