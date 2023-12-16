@@ -154,52 +154,62 @@ declare function exsaml:process-saml-response-post() {
         )
 };
 
+(:~
+ : Process a SAML response and return authentication data to the caller,
+ : so the user can be redirected to the requested resource.
+ :)
 declare %private function exsaml:process-saml-response-post-parsed($resp as node()) {
     let $log  := exsaml:log("debug", "process-saml-response-parsed: response: " || $resp)
-        let $valresult  := exsaml:validate-saml-response($resp)
-        return
-            if ($valresult/@res < 0)
-            then (
-                $valresult
-            )
-            else (
-                let $rsseq := fn:tokenize(request:get-parameter("RelayState", ""), "#")
-                let $realm := $rsseq[1]
-                let $relayurl := exsaml:determine-relay-state($rsseq[2])
+    let $valresult  := exsaml:validate-saml-response($resp)
+    return
+        if ($valresult/@res < 0)
+        then (
+            $valresult
+        )
+        else (
+            let $rsseq := fn:tokenize(request:get-parameter("RelayState", ""), "#")
+            let $realm := $rsseq[1]
+            let $relayurl := exsaml:determine-relay-state($rsseq[2])
 
-                (: Return an element with all SAML validation data to the controller.
-                   If SAML success, this is basically username and group membership.
-                   IF SAML fail, pass enough info to allow meaningful error messages. :)
-                let $auth := element { "authresult" } {
-                    attribute code   { $valresult/@res },
-                    attribute msg    { $valresult/@msg },
-                    attribute nameid { $resp/saml:Assertion/saml:Subject/saml:NameID },
-                    attribute realm  { $realm },
-                    attribute relaystate { $relayurl },
-                    attribute authndate  { $resp/saml:Assertion/@IssueInstant }
-                }
+            (: Return an element with all SAML validation data to the controller.
+               If SAML success, this is basically username and group membership.
+               IF SAML fail, pass enough info to allow meaningful error messages. :)
+            let $auth := element { "authresult" } {
+                attribute code   { $valresult/@res },
+                attribute msg    { $valresult/@msg },
+                attribute nameid { $resp/saml:Assertion/saml:Subject/saml:NameID },
+                attribute realm  { $realm },
+                attribute relaystate { $relayurl },
+                attribute authndate  { $resp/saml:Assertion/@IssueInstant }
+            }
 
-                (: create SAML user if not exists yet :)
-                let $u :=
-                    if ($exsaml:sso-create-users = "true" and $auth/@code >= "0") then
-		        exsaml:ensure-saml-user($auth/@nameid, $realm)
-                    else ""
+            (: create SAML user if not exists yet :)
+            let $u :=
+                if ($exsaml:sso-create-users = "true" and $auth/@code >= "0")
+                then exsaml:ensure-saml-user($auth/@nameid, $realm)
+                else ()
 
-                let $pass := exsaml:create-user-password($auth/@nameid)
-                let $log-in := xmldb:login("/db/apps", $auth/@nameid, $pass, true())
-                let $log := exsaml:log("notice", "login result: " || $log-in || ", " || fn:serialize(sm:id()))
+            let $pass := exsaml:create-user-password($auth/@nameid)
+            let $log-in := xmldb:login("/db/apps", $auth/@nameid, $pass, true())
+            let $log := exsaml:log("notice", "login result: " || $log-in || ", " || fn:serialize(sm:id()))
 
-                (: put SAML token into browser session :)
-                let $sesstok :=
-                    if ($log-in and $auth/@code >= "0") then
-                        exsaml:set-saml-token($auth/@nameid, $auth/@authndate)
-                    else ()
+            (: put SAML token into browser session :)
+            let $sesstok :=
+                if ($log-in and $auth/@code >= "0") then
+                    exsaml:set-saml-token($auth/@nameid, $auth/@authndate)
+                else ()
 
-                let $debug := exsaml:log("debug", "finished exsaml:process-saml-response-post. auth: " || fn:serialize($auth))
-                return $auth
-            )
+            let $debug := exsaml:log("debug", "finished exsaml:process-saml-response-post. auth: " || fn:serialize($auth))
+            return $auth
+        )
 };
 
+(:~
+ : Usually, a SAML authentication response contains the URI where the user
+ : initially wanted to go in the RelayState.
+ : A forced landing page may be configured, overriding the user URL.
+ : A default RelayState may be configured, if no user URL is provided.
+ :)
 declare %private function exsaml:determine-relay-state($rsin as xs:string) {
     let $rsout :=
         (: if we accept IDP-initiated SAML *and* use a forced landing page :)
@@ -211,12 +221,14 @@ declare %private function exsaml:determine-relay-state($rsin as xs:string) {
         (: otherwise accept relaystate from the SAML response :)
         else if ($rsin != "") then (
             let $debug := exsaml:log("debug", "Relay State provided by SSO: " || $rsin)
-            return $rsin
+            return
+                $rsin
         ) else (
             let $debug := exsaml:log("debug", "no Relay State provided by SSO, using SP fallback relaystate: " || $exsaml:sp-fallback-rs)
             return
                 $exsaml:sp-fallback-rs
         )
+    let $debug := exsaml:log("debug", "final Relay State: " || $rsout)
     return $rsout
 };
 
