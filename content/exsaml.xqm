@@ -55,7 +55,6 @@ declare %private variable $exsaml:saml-version   := "2.0";
 declare %private variable $exsaml:status-success := "urn:oasis:names:tc:SAML:2.0:status:Success";
 (: debugging only to simulate failure in fake-idp :)
 declare %private variable $exsaml:status-badauth := "urn:oasis:names:tc:SAML:2.0:status:AuthnFailed";
-declare variable $exsaml:ERROR :=  xs:QName("saml:error");
 
 (: quirks :)
 (: eXist-db >= 5.3.0 returns a parsed XML fragment wrapped in a document node, earlier versions did not :)
@@ -137,11 +136,13 @@ declare %private function exsaml:build-saml-authnreq() {
  :)
 declare function exsaml:process-saml-response-post() {
     let $log := exsaml:log("debug", "process-saml-response-post")
-    let $saml-resp := request:get-parameter("SAMLResponse", "error")
+    let $saml-resp := request:get-parameter("SAMLResponse", "NONE")
     return
-        if ($saml-resp = "error")
+        if ($saml-resp = "NONE")
         then (
-            error($exsaml:ERROR, "Empty SAML Response", "No SAML response data has been provided")
+            let $log := exsaml:log("notice", "No SAML response data provided")
+            return
+                <authresult msg="No SAML response data provided"/>
         )
         else (
             let $parsed-resp := fn:parse-xml-fragment(util:base64-decode($saml-resp))
