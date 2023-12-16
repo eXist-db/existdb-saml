@@ -63,7 +63,7 @@ declare variable $exsaml:quirk-pre53-parsexmlfragment := semver:lt(system:get-ve
 
 (: may be used to check if SAML is enabled at all :)
 declare function exsaml:is-enabled() {
-    $exsaml:config/@enabled = "true"
+    $exsaml:config/@enabled eq "true"
 };
 
 (: dump current config data :)
@@ -185,7 +185,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
 
             (: create SAML user if not exists yet :)
             let $u :=
-                if ($exsaml:sso-create-users = "true" and $auth/@code >= "0")
+                if ($exsaml:sso-create-users eq "true" and $auth/@code >= "0")
                 then exsaml:ensure-saml-user($auth/@nameid, $realm)
                 else ()
 
@@ -213,13 +213,13 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
 declare %private function exsaml:determine-relay-state($rsin as xs:string) {
     let $rsout :=
         (: if we accept IDP-initiated SAML *and* use a forced landing page :)
-        if ($exsaml:idp-unsolicited and $exsaml:idp-force-rs != "") then (
+        if ($exsaml:idp-unsolicited and $exsaml:idp-force-rs ne "") then (
             let $debug := exsaml:log("debug", "forced Relay State: " || $exsaml:idp-force-rs)
             return
                 $exsaml:idp-force-rs
         )
         (: otherwise accept relaystate from the SAML response :)
-        else if ($rsin != "") then (
+        else if ($rsin ne "") then (
             let $debug := exsaml:log("debug", "Relay State provided by SSO: " || $rsin)
             return
                 $rsin
@@ -243,12 +243,12 @@ declare %private function exsaml:validate-saml-response($resp as node()) {
         (: check SAML response status. there are ~20 failure codes, check
          : for success only, return errmsg in @data
          :)
-        if (not($resp/samlp:Status/samlp:StatusCode/@Value = $exsaml:status-success)) then
+        if ($resp/samlp:Status/samlp:StatusCode/@Value ne $exsaml:status-success) then
             <exsaml:funcret res="-3" msg="SAML authentication failed" data="{$resp/samlp:Status/samlp:StatusCode/@Value}"/>
 
         (: check that "Issuer" is the expected IDP.  Not stricty required by
            SAML specs, but adds extra protection against forged SAML responses. :)
-        else if ($exsaml:idp-verify-issuer = "true" and boolean($resp/saml:Issuer) and not($resp/saml:Issuer = $exsaml:idp-ent)) then (
+        else if ($exsaml:idp-verify-issuer eq "true" and boolean($resp/saml:Issuer) and $resp/saml:Issuer ne $exsaml:idp-ent) then (
             let $msg := "SAML response from unexpected IDP: " || $resp/saml:Issuer
             return
                 <exsaml:funcret res="-6" msg="{$msg}" data="{$resp/saml:Issuer}"/>
@@ -292,7 +292,10 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
             (: check that "Issuer" is the expected IDP.  Not stricty required by
                SAML specs, but adds extra protection against forged SAML responses. :)
 
-            if ($exsaml:idp-verify-issuer = "true" and boolean($assertion/saml:Issuer) and not($assertion/saml:Issuer = $exsaml:idp-ent)) then (
+            if ($exsaml:idp-verify-issuer eq "true"
+                and boolean($assertion/saml:Issuer)
+                and $assertion/saml:Issuer ne $exsaml:idp-ent)
+            then (
                 let $msg := "SAML assertion from unexpected IDP: " || $assertion/saml:Issuer
                 return
                     <exsaml:funcret res="-18" msg="{$msg}" data="{$assertion/saml:Issuer}"/>
@@ -306,7 +309,7 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
             (: maybe verify SubjectConfirmation/@Method :)
 
             (: verify SubjectConfirmationData/@Recipient is SP URL ($sp-uri) :)
-            else if (not($subj-confirm-data/@Recipient = $exsaml:sp-uri)) then
+            else if ($subj-confirm-data/@Recipient ne $exsaml:sp-uri) then
                 <exsaml:funcret res="-11" msg="assertion not for me" data="{$subj-confirm-data/@Recipient}"/>
 
             (: verify SubjectConfirmationData/@NotOnOrAfter is not later than now :)
@@ -341,7 +344,7 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
             )
 
             (: verify Conditions/AudienceRestriction/Audience is myself ($sp-ent) :)
-            else if (not($conds/saml:AudienceRestriction/saml:Audience = $exsaml:sp-ent)) then
+            else if ($conds/saml:AudienceRestriction/saml:Audience ne $exsaml:sp-ent) then
                     <exsaml:funcret res="-16" msg="audience not for me" data="{$conds/saml:AudienceRestriction/saml:Audience}"/>
 
             else
@@ -356,7 +359,7 @@ declare %private function exsaml:verify-response-signature($resp as item()) {
     let $log  := exsaml:log("debug", "verify-response-signature: " || $resp)
     let $res :=
         (: if $idp-certfile is configured, use that to validate XML signature :)
-        if ($exsaml:idp-certfile != "") then (
+        if ($exsaml:idp-certfile ne "") then (
 (:            crypto:validate-signature-by-certfile($resp, $exsaml:idp-certfile):)
         )
         else (
@@ -372,7 +375,7 @@ declare %private function exsaml:verify-assertion-signature($assertion as item()
     let $log  := exsaml:log("debug", "verify-assertion-signature " || $assertion)
     let $res :=
         (: if $idp-certfile is configured, use that to validate XML signature :)
-        if ($exsaml:idp-certfile != "") then (
+        if ($exsaml:idp-certfile ne "") then (
 (:            crypto:validate-signature-by-certfile($assertion, $exsaml:idp-certfile):)
         )
         else (
@@ -568,7 +571,7 @@ declare %private function exsaml:fake-idp-response($req as node(), $rs as xs:str
 declare %private function exsaml:build-saml-fakeresp($req as node()) {
     let $reqid := $req/@ID
     let $status  :=
-        if($exsaml:fake-result = "true") then $exsaml:status-success
+        if($exsaml:fake-result eq "true") then $exsaml:status-success
         else $exsaml:status-badauth
     let $fakesig := "ABCDEF"
     let $now     := fn:current-dateTime()
