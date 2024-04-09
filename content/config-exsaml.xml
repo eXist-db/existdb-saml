@@ -22,14 +22,14 @@
     <!--   @endpoint: their HTTP endpoint to send SAML requests to -->
     <!--   @accept-unsolicited: enable IDP-initiated SAML -->
     <!--   @force-relaystate: force clients to a local endpoint URI -->
-    <!--   @certfile: required for XML signature validation if sig sent by IDP -->
+    <!--   @validate-signatures: set to "false" to skip validating XML signature -->
     <!--   @verify-issuer: is a hack to deal with misconfigured IDPs -->
 
     <idp entity="https://sso.endpoint.example.org/entity"
          endpoint="https://sso.endpoint.example.org/idp/SSO.saml2"
          accept-unsolicited="false"
          force-relaystate=""
-         certfile="/usr/local/existdb/exist/cert/sso-prod.crt"
+         validate-signatures="true"
          verify-issuer="true"/>
 
     <!-- crypto settings -->

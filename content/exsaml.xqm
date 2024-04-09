@@ -26,7 +26,7 @@ declare %private variable $exsaml:sp-uri   := data($exsaml:config/sp/@endpoint);
 declare %private variable $exsaml:sp-fallback-rs := data($exsaml:config/sp/@fallback-relaystate);
 declare %private variable $exsaml:idp-ent  := data($exsaml:config/idp/@entity);
 declare %private variable $exsaml:idp-uri  := data($exsaml:config/idp/@endpoint);
-declare %private variable $exsaml:idp-certfile    := data($exsaml:config/idp/@certfile);
+declare %private variable $exsaml:idp-validate-signatures := data($exsaml:config/idp/@validate-signatures);
 declare %private variable $exsaml:idp-unsolicited := data($exsaml:config/idp/@accept-unsolicited);
 declare %private variable $exsaml:idp-force-rs    := data($exsaml:config/idp/@force-relaystate);
 declare %private variable $exsaml:idp-verify-issuer := data($exsaml:config/idp/@verify-issuer);
@@ -359,14 +359,20 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
 declare %private function exsaml:verify-response-signature($resp as item()) {
     let $debug := exsaml:debug("verify-response-signature; response: ", $resp)
     let $res :=
-        (: if $idp-certfile is configured, use that to validate XML signature :)
-        if ($exsaml:idp-certfile ne "") then (
-(:            crypto:validate-signature-by-certfile($resp, $exsaml:idp-certfile):)
+        if ($exsaml:idp-validate-signatures eq "true") then (
+            if (crypto:validate-signature($resp))
+            then (
+                let $debug := exsaml:debug("response signature validated")
+                return true()
+            )
+            else (
+                let $log := exsaml:log("notice", "failed to validate response signature")
+                return false()
+            )
         )
         else (
-            let $log  := exsaml:log("info", "cert to verify response signature is missing - could not verify signature! ")
-            return
-                false()
+            let $log := exsaml:log("info", "not verifying response signature")
+            return true()
         )
     return $res
 };
@@ -375,14 +381,20 @@ declare %private function exsaml:verify-response-signature($resp as item()) {
 declare %private function exsaml:verify-assertion-signature($assertion as item()) {
     let $debug := exsaml:debug("verify-assertion-signature; assertion: ", $assertion)
     let $res :=
-        (: if $idp-certfile is configured, use that to validate XML signature :)
-        if ($exsaml:idp-certfile ne "") then (
-(:            crypto:validate-signature-by-certfile($assertion, $exsaml:idp-certfile):)
+        if ($exsaml:idp-validate-signatures eq "true") then (
+            if (crypto:validate-signature($assertion))
+            then (
+                let $debug := exsaml:debug("assertion signature validated")
+                return true()
+            )
+            else (
+                let $log := exsaml:log("notice", "failed to validate assertion signature")
+                return false()
+            )
         )
         else (
-            let $log  := exsaml:log("info", "cert to verify assertion signature is missing - could not verify signature! ")
-            return
-                false()
+            let $log := exsaml:log("info", "not verifying assertion signature")
+            return true()
         )
     return $res
 };
