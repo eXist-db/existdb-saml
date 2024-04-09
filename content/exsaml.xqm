@@ -112,17 +112,13 @@ declare function exsaml:build-authnreq-redir-url($relaystate as xs:string, $real
 
 (: build and return SAML AuthnRequest node :)
 declare %private function exsaml:build-saml-authnreq() {
-    let $id := exsaml:gen-id()
-    let $instant := fn:current-dateTime()
     let $store := exsaml:store-authnreqid($id, $instant)
-    let $req := element { "samlp:AuthnRequest" } {
-        attribute ID { $id },
-        attribute Version { $exsaml:saml-version },
-        attribute IssueInstant { $instant },
-        attribute AssertionConsumerServiceIndex { "0" },
-        element { "saml:Issuer" } { $exsaml:sp-ent }
-    }
-    return $req
+
+    return
+        <samlp:AuthnRequest ID="{exsaml:gen-id()}" Version="{$exsaml:saml-version}"
+                            IssueInstant="{fn:current-dateTime()}" AssertionConsumerServiceIndex="0">
+            <saml:Issuer>{$exsaml:sp-ent}</saml:Issuer>
+        </samlp:AuthnRequest>
 };
 
 (: ==== FUNCTIONS TO PROCESS AND VALIDATE A SAML AUTHN RESPONSE ==== :)
@@ -175,14 +171,10 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
             (: Return an element with all SAML validation data to the controller.
                If SAML success, this is basically username and group membership.
                IF SAML fail, pass enough info to allow meaningful error messages. :)
-            let $auth := element { "authresult" } {
-                attribute code   { $valresult/@res },
-                attribute msg    { $valresult/@msg },
-                attribute nameid { $resp/saml:Assertion/saml:Subject/saml:NameID },
-                attribute realm  { $realm },
-                attribute relaystate { $relayurl },
-                attribute authndate  { $resp/saml:Assertion/@IssueInstant }
-            }
+            let $auth :=
+                <authresult code="{$valresult/@res}" msg="{$valresult/@msg}"
+                            nameid="{$resp/saml:Assertion/saml:Subject/saml:NameID}" realm="{$realm}"
+                            relaystate="{$relayurl}" authndate="{$resp/saml:Assertion/@IssueInstant}" />
 
             (: create SAML user if not exists yet :)
             let $u :=
@@ -584,61 +576,41 @@ declare %private function exsaml:fake-idp-response($req as node(), $rs as xs:str
 declare %private function exsaml:build-saml-fakeresp($req as node()) {
     let $reqid := $req/@ID
     let $status  :=
-        if($exsaml:fake-result eq "true") then $exsaml:status-success
+        if ($exsaml:fake-result eq "true")
+        then $exsaml:status-success
         else $exsaml:status-badauth
     let $fakesig := "ABCDEF"
     let $now     := fn:current-dateTime()
     let $validto := $now + xs:dayTimeDuration("PT" || $exsaml:minutes-valid || "M")
-    let $resp    :=  element { "samlp:Response" } {
-        attribute ID { exsaml:gen-id() },
-        attribute InResponseTo { $reqid },
-        attribute Version { $exsaml:saml-version },
-        attribute IssueInstant { $now },
-        attribute Destination { $exsaml:sp-uri },
-        element { "saml:Issuer" } { $exsaml:idp-ent },
-        element { "samlp:Status" } {
-            element { "samlp:StatusCode" } {
-                attribute Value { $status }
-            }
-        },
-        element { "saml:Assertion" } {
-            attribute ID { exsaml:gen-id() },
-            attribute Version { $exsaml:saml-version },
-            attribute IssueInstant { $now },
-            element { "saml:Issuer" } { $exsaml:idp-ent },
-            element { "ds:Signature" } { $fakesig },
-            element { "saml:Subject" } {
-                element { "saml:NameID" } {
-                    attribute Format { "urn:oasis:names:tc:SAML:2.0:nameid-format:transient" },
-                    $exsaml:fake-user
-                },
-                element { "saml:SubjectConfirmation" } {
-                    attribute Method { "urn:oasis:names:tc:SAML:2.0:cm:bearer" },
-                    element { "saml:SubjectConfirmationData"} {
-                        attribute InResponseTo { $reqid },
-                        attribute Recipient { $exsaml:sp-uri},
-                        attribute NotOnOrAfter { $validto }
-                    }
-                }
-            },
-            element { "saml:Conditions" } {
-                attribute NotBefore { $now },
-                attribute NotOnOrAfter { $validto },
-                element { "saml:AudienceRestriction" } {
-                    element { "saml:Audience" } { $exsaml:sp-ent }
-                }
-            },
-            element { "saml:AuthnStatement" } {
-                attribute AuthnInstant { $now },
-                attribute SessionIndex { exsaml:gen-id() },
-                element { "saml:AuthnContext" } {
-                    element { "saml:AuthnContextClassRef" } { "urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport" }
-                }
-            }
-        }
-    }
 
-    return $resp
+    return
+        <samlp:Response ID="{exsaml:gen-id()}" InResponseTo="{$reqid}" Version="{$exsaml:saml-version}"
+                        IssueInstant="{$now}" Destination="{$exsaml:sp-uri}">
+            <saml:Issuer>{$exsaml:idp-ent}</saml:Issuer>
+            <samlp:Status>
+                <samlp:StatusCode Value="{$status}"/>
+            </samlp:Status>
+            <saml:Assertion ID="{exsaml:gen-id()}" Version="{$exsaml:saml-version}" IssueInstant="{$now}">
+                <saml:Issuer>{$exsaml:idp-ent}</saml:Issuer>
+                <ds:Signature>{$fakesig}</ds:Signature>
+                <saml:Subject>
+                    <saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient">{$exsaml:fake-user}</saml:NameID>
+                    <saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+                        <saml:SubjectConfirmationData InResponseTo="{$reqid}" Recipient="{$exsaml:sp-uri}" NotOnOrAfter="{$validto}"/>
+                    </saml:SubjectConfirmation>
+                </saml:Subject>
+                <saml:Conditions NotBefore="{$now}" NotOnOrAfter="{$validto}">
+                    <saml:AudienceRestriction>
+                        <saml:Audience>{$exsaml:sp-ent}</saml:Audience>
+                    </saml:AudienceRestriction>
+                </saml:Conditions>
+                <saml:AuthnStatement AuthnInstant="{$now}" SessionIndex="{exsaml:gen-id()}">
+                    <saml:AuthnContext>
+                        <saml:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml:AuthnContextClassRef>
+                    </saml:AuthnContext>
+                </saml:AuthnStatement>
+            </saml:Assertion>
+        </samlp:Response>
 };
 
 
