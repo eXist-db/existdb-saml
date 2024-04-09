@@ -134,7 +134,7 @@ declare function exsaml:process-saml-response-post() {
     let $debug := exsaml:debug("process-saml-response-post")
     let $saml-resp := request:get-parameter("SAMLResponse", "NONE")
     return
-        if ($saml-resp = "NONE")
+        if ($saml-resp eq "NONE")
         then (
             let $log := exsaml:log("notice", "No SAML response data provided")
             return
@@ -159,7 +159,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
     let $debug := exsaml:debug("process-saml-response-parsed; response: ", $resp)
     let $valresult := exsaml:validate-saml-response($resp)
     return
-        if ($valresult/@res < 0)
+        if ($valresult/@res lt 0)
         then (
             $valresult
         )
@@ -178,7 +178,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
 
             (: create SAML user if not exists yet :)
             let $u :=
-                if ($exsaml:sso-create-users eq "true" and $auth/@code >= "0")
+                if ($exsaml:sso-create-users eq "true" and $auth/@code ge 0)
                 then exsaml:ensure-saml-user($auth/@nameid, $realm)
                 else ()
 
@@ -188,7 +188,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
 
             (: put SAML token into browser session :)
             let $sesstok :=
-                if ($log-in and $auth/@code >= "0") then
+                if ($log-in and $auth/@code ge 0) then
                     exsaml:set-saml-token($auth/@nameid, $auth/@authndate)
                 else ()
 
@@ -306,7 +306,7 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) a
                 <exsaml:funcret res="-11" msg="assertion not for me" data="{$subj-confirm-data/@Recipient}"/>
 
             (: verify SubjectConfirmationData/@NotOnOrAfter is not later than now :)
-            else if (xs:dateTime(fn:current-dateTime()) >= xs:dateTime($subj-confirm-data/@NotOnOrAfter)) then
+            else if (xs:dateTime(fn:current-dateTime()) ge xs:dateTime($subj-confirm-data/@NotOnOrAfter)) then
                     <exsaml:funcret res="-12" msg="assertion no longer valid" data="{$subj-confirm-data/@NotOnOrAfter}"/>
 
             (: verify SubjectConfirmationData/@InResponseTo is present in the SAML response :)
@@ -327,12 +327,12 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) a
             (: verify assertions are valid in other respects - none yet :)
 
             (: verify Conditions/@NotBefore is not earlier than now :)
-            else if (xs:dateTime(fn:current-dateTime()) < xs:dateTime($conds/@NotBefore)) then (
+            else if (xs:dateTime(fn:current-dateTime()) lt xs:dateTime($conds/@NotBefore)) then (
                     <exsaml:funcret res="-14" msg="condition not yet valid" data="{$conds/@NotBefore}"/>
             )
 
             (: verify Conditions/@NotOnOrAfter is not later than now :)
-            else if (xs:dateTime(fn:current-dateTime()) >= xs:dateTime($conds/@NotOnOrAfter)) then (
+            else if (xs:dateTime(fn:current-dateTime()) ge xs:dateTime($conds/@NotOnOrAfter)) then (
                     <exsaml:funcret res="-15" msg="condition no longer valid" data="{$conds/@NotOnOrAfter}"/>
             )
 
@@ -399,10 +399,10 @@ declare %private function exsaml:verify-assertion-signature($assertion as item()
 declare %private function exsaml:ensure-saml-user($nameid as xs:string, $realm as xs:string) {
     let $allusers := doc($exsaml:sso-userdata)/sso-users/user/*[name() = $realm]
     let $userdata :=
-        if ($allusers[@user=$nameid]) then (
-            $allusers[@user=$nameid]
+        if ($allusers[@user eq $nameid]) then (
+            $allusers[@user eq $nameid]
         ) else (
-            $allusers[@user='default-user']
+            $allusers[@user eq 'default-user']
         )
     let $user-exists := exsaml:suexec(sm:user-exists#1, [$nameid])
 
