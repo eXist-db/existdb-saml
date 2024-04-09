@@ -88,11 +88,11 @@ declare function exsaml:info() {
  : @param relaystate this is the path component of the resource that the user
  :  initially requested, so that she gets sent there after SAML auth.
  :)
-declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) {
+declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) as xs:string {
     exsaml:build-authnreq-redir-url($relaystate, $exsaml:sso-default-realm)
 };
 
-declare function exsaml:build-authnreq-redir-url($relaystate as xs:string, $realm as xs:string) {
+declare function exsaml:build-authnreq-redir-url($relaystate as xs:string, $realm as xs:string) as xs:string {
     let $log := exsaml:log("info", "building SAML auth request redir-url; relaystate: " || $relaystate || " - realm: " || $realm)
     let $req := exsaml:build-saml-authnreq()
     let $debug := exsaml:debug("build-authnreq-redir-url; authnreq: ", $req)
@@ -111,7 +111,7 @@ declare function exsaml:build-authnreq-redir-url($relaystate as xs:string, $real
 };
 
 (: build and return SAML AuthnRequest node :)
-declare %private function exsaml:build-saml-authnreq() {
+declare %private function exsaml:build-saml-authnreq() as element(samlp:AuthnRequest) {
     let $store := exsaml:store-authnreqid($id, $instant)
 
     return
@@ -226,7 +226,7 @@ declare %private function exsaml:determine-relay-state($rsin as xs:string) {
 };
 
 (: validate a SAML response message :)
-declare %private function exsaml:validate-saml-response($resp as node()) {
+declare %private function exsaml:validate-saml-response($resp as node()) as element(exsaml:funcret) {
     let $debug := exsaml:debug("validate-saml-response")
 
     let $as := $resp/saml:Assertion
@@ -265,7 +265,7 @@ declare %private function exsaml:validate-saml-response($resp as node()) {
 };
 
 (: validate a SAML assertion :)
-declare %private function exsaml:validate-saml-assertion($assertion as item()) {
+declare %private function exsaml:validate-saml-assertion($assertion as item()) as element(exsaml:funcret) {
     if(empty($assertion))
     then (
         let $log := exsaml:log("notice", "Error: Empty Assertion")
@@ -348,7 +348,7 @@ declare %private function exsaml:validate-saml-assertion($assertion as item()) {
 };
 
 (: verify XML signature of a SAML response :)
-declare %private function exsaml:verify-response-signature($resp as item()) {
+declare %private function exsaml:verify-response-signature($resp as item()) as xs:boolean {
     let $debug := exsaml:debug("verify-response-signature; response: ", $resp)
     let $res :=
         if ($exsaml:idp-validate-signatures eq "true") then (
@@ -370,7 +370,7 @@ declare %private function exsaml:verify-response-signature($resp as item()) {
 };
 
 (: verify XML signature of a SAML assertion :)
-declare %private function exsaml:verify-assertion-signature($assertion as item()) {
+declare %private function exsaml:verify-assertion-signature($assertion as item()) as xs:boolean {
     let $debug := exsaml:debug("verify-assertion-signature; assertion: ", $assertion)
     let $res :=
         if ($exsaml:idp-validate-signatures eq "true") then (
@@ -476,7 +476,7 @@ declare %private function exsaml:check-authnreqid-privileged($reqid as xs:string
  : Check whether a SAML token exists and is valid.  Return boolean.
  : This is called from the controller(s) to check if access should be granted.
  :)
-declare function exsaml:check-valid-saml-token() {
+declare function exsaml:check-valid-saml-token() as xs:boolean {
     let $raw := session:get-attribute($exsaml:token-name)
     let $debug := exsaml:debug("checking saml token, name: " || $exsaml:token-name || ", value: " || $raw)
 
@@ -499,7 +499,7 @@ declare function exsaml:check-valid-saml-token() {
  : so that it will fail token expiration checks.
  : This is called from the controller(s) upon user logout.
  :)
-declare function exsaml:invalidate-saml-token() {
+declare function exsaml:invalidate-saml-token() as empty-sequence() {
     let $user := sm:id()/sm:id/sm:real/sm:username
     let $tok  := exsaml:build-string-token($user, "1970-01-01T00:00:00")
     let $hmac := exsaml:hmac-tokval($tok)
@@ -525,7 +525,7 @@ declare %private function exsaml:build-string-token($nameid as xs:string, $valid
 };
 
 (: build and HMAC token and stuff into browser session :)
-declare %private function exsaml:set-saml-token($nameid as xs:string, $authndate as xs:string) {
+declare %private function exsaml:set-saml-token($nameid as xs:string, $authndate as xs:string) as empty-sequence() {
     let $validto := xs:dateTime($authndate) + xs:dayTimeDuration("PT" || $exsaml:token-minutes || "M")
 
     let $tok := exsaml:build-string-token($nameid, $validto)
@@ -538,7 +538,7 @@ declare %private function exsaml:set-saml-token($nameid as xs:string, $authndate
 (: ==== FUNCTIONS TO FAKE A SAML IDP (testing only) ==== :)
 
 (: process SAML AuthnRequest, return SAML Response via POST :)
-declare function exsaml:process-saml-request() {
+declare function exsaml:process-saml-request() as element(html) {
     let $debug := exsaml:debug("process-saml-request")
     let $raw := request:get-parameter("SAMLRequest", "")
     let $debug := exsaml:debug("process-saml-request; raw: " || $raw)
@@ -555,7 +555,7 @@ declare function exsaml:process-saml-request() {
 };
 
 (: fake SAML IDP response: build response and return via XHTML autosubmit form :)
-declare %private function exsaml:fake-idp-response($req as node(), $rs as xs:string) {
+declare %private function exsaml:fake-idp-response($req as node(), $rs as xs:string) as element(html) {
     let $debug := exsaml:debug("fake-idp-response")
     let $resp := exsaml:build-saml-fakeresp($req)
     let $b64resp := util:base64-encode(fn:serialize($resp))
@@ -573,7 +573,7 @@ declare %private function exsaml:fake-idp-response($req as node(), $rs as xs:str
 };
 
 (: return a fake SAML response node :)
-declare %private function exsaml:build-saml-fakeresp($req as node()) {
+declare %private function exsaml:build-saml-fakeresp($req as node()) as element(samlp:Response) {
     let $reqid := $req/@ID
     let $status  :=
         if ($exsaml:fake-result eq "true")
@@ -624,23 +624,23 @@ declare %private function exsaml:suexec($function as function(*), $args as array
 
 (: generate a SAML ID :)
 (: which is xs:ID which is xsd:NCName which MUST NOT start with a number :)
-declare %private function exsaml:gen-id() {
+declare %private function exsaml:gen-id() as xs:string {
     let $uuid := util:uuid()
     return "a" || $uuid
 };
 
 (: generic log function, returns true for easy use in if constructs :)
-declare function exsaml:log($level as xs:string, $msg as xs:string) {
+declare function exsaml:log($level as xs:string, $msg as xs:string) as xs:boolean {
     let $l := util:log($level, "exsaml: " || $msg)
     return true()
 };
 
 (: generic debug functions :)
-declare function exsaml:debug($msg as xs:string, $data as item()) {
+declare function exsaml:debug($msg as xs:string, $data as item()) as xs:boolean {
     exsaml:debug($msg || fn:serialize($data))
 };
 
-declare function exsaml:debug($msg as xs:string) {
+declare function exsaml:debug($msg as xs:string) as xs:boolean {
     let $l :=
         if ($exsaml:debug eq 'true')
         then (
