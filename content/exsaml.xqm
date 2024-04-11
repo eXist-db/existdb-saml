@@ -112,11 +112,13 @@ declare function exsaml:build-authnreq-redir-url($relaystate as xs:string, $real
 
 (: build and return SAML AuthnRequest node :)
 declare %private function exsaml:build-saml-authnreq() as element(samlp:AuthnRequest) {
+    let $id := exsaml:gen-id()
+    let $instant := fn:current-dateTime()
     let $store := exsaml:store-authnreqid($id, $instant)
 
     return
-        <samlp:AuthnRequest ID="{exsaml:gen-id()}" Version="{$exsaml:saml-version}"
-                            IssueInstant="{fn:current-dateTime()}" AssertionConsumerServiceIndex="0">
+        <samlp:AuthnRequest ID="{$id}" Version="{$exsaml:saml-version}"
+                            IssueInstant="{$instant}" AssertionConsumerServiceIndex="0">
             <saml:Issuer>{$exsaml:sp-ent}</saml:Issuer>
         </samlp:AuthnRequest>
 };
