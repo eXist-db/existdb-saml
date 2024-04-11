@@ -161,7 +161,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
     let $debug := exsaml:debug("process-saml-response-parsed; response: ", $resp)
     let $valresult := exsaml:validate-saml-response($resp)
     return
-        if ($valresult/@res lt 0)
+        if (xs:integer($valresult/@res) lt 0)
         then (
             $valresult
         )
@@ -180,7 +180,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
 
             (: create SAML user if not exists yet :)
             let $u :=
-                if ($exsaml:sso-create-users eq "true" and $auth/@code ge 0)
+                if ($exsaml:sso-create-users eq "true" and xs:integer($auth/@code) ge 0)
                 then exsaml:ensure-saml-user($auth/@nameid, $realm)
                 else ()
 
@@ -190,7 +190,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as node
 
             (: put SAML token into browser session :)
             let $sesstok :=
-                if ($log-in and $auth/@code ge 0) then
+                if ($log-in and xs:integer($auth/@code) ge 0) then
                     exsaml:set-saml-token($auth/@nameid, $auth/@authndate)
                 else ()
 
