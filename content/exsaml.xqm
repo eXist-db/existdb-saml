@@ -549,10 +549,13 @@ declare function exsaml:process-saml-request() as element(html) {
     let $strg := util:base64-decode($uncomp)
     let $debug := exsaml:debug("process-saml-request; strg: " || $strg)
     let $req := fn:parse-xml-fragment($strg)
-    let $debug := exsaml:debug("process-saml-request; req: ", $req)
+    let $real-req :=
+        if ($exsaml:quirk-pre53-parsexmlfragment)
+        then $req
+        else $req/samlp:AuthnRequest
+    let $debug := exsaml:debug("process-saml-request; req: ", $real-req)
     let $rs := request:get-parameter("RelayState", false())
-
-    let $resp := exsaml:fake-idp-response($req, $rs)
+    let $resp := exsaml:fake-idp-response($real-req, $rs)
     return $resp
 };
 
