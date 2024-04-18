@@ -439,13 +439,13 @@ declare %private function exsaml:create-user-password($nameid as xs:string) {
 (: ==== FUNCTIONS TO DEAL WITH REQUEST IDS ==== :)
 
 (: store issued request ids in a collection :)
-declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:string) {
+declare %private function exsaml:store-authnreqid($id as xs:string, $instant as xs:dateTime) {
     let $debug := exsaml:debug($id, "storing SAML request id: " || $id || ", date: " || $instant)
     return
         exsaml:suexec(exsaml:store-authnreqid-privileged#2, [$id, $instant])
 };
 
-declare %private function exsaml:store-authnreqid-privileged($id as xs:string, $instant as xs:string) {
+declare %private function exsaml:store-authnreqid-privileged($id as xs:string, $instant as xs:dateTime) {
     let $create-collection :=
         if (not(xmldb:collection-available($exsaml:saml-coll-reqid)))
         then (
@@ -504,7 +504,7 @@ declare function exsaml:check-valid-saml-token() as xs:boolean {
  :)
 declare function exsaml:invalidate-saml-token() as empty-sequence() {
     let $user := sm:id()/sm:id/sm:real/sm:username
-    let $tok  := exsaml:build-string-token($user, "1970-01-01T00:00:00")
+    let $tok  := exsaml:build-string-token($user, xs:dateTime("1970-01-01T00:00:00"))
     let $hmac := exsaml:hmac-tokval($tok)
     let $log  := exsaml:log("info", "--", "invalidate saml token for: " || $user || ", hmac: " || $hmac)
     let $session-attr := session:set-attribute($exsaml:token-name, $tok || $exsaml:token-separator || $hmac)
@@ -521,7 +521,7 @@ declare %private function exsaml:hmac-tokval($tokval as xs:string) as xs:string 
 };
 
 (: build string token: join nameid and validto by $exsaml:token-separator :)
-declare %private function exsaml:build-string-token($nameid as xs:string, $validto as xs:string) as xs:string {
+declare %private function exsaml:build-string-token($nameid as xs:string, $validto as xs:dateTime) as xs:string {
     $nameid || $exsaml:token-separator || $validto
 };
 
