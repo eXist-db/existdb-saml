@@ -643,8 +643,13 @@ declare function exsaml:log($level as xs:string, $id as xs:string, $msg as xs:st
 };
 
 declare function exsaml:debug($id as xs:string, $msg as xs:string, $data as item()) as xs:boolean {
-    let $ser := fn:serialize($data)
-    return exsaml:debug($id, $msg || " " || $ser)
+    let $l :=
+        if ($exsaml:debug eq 'true')
+        then (
+ 	    let $ser := fn:serialize($data)
+            return util:log('info', "exsaml-debug: [" || $id || "] " || $msg || " " || $ser)
+        ) else ()
+    return true()
 };
 
 declare function exsaml:debug($id as xs:string, $msg as xs:string) as xs:boolean {
