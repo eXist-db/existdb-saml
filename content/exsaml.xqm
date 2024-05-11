@@ -258,9 +258,8 @@ declare %private function exsaml:validate-saml-response($resp as node()) as elem
         )
         
         (: verify response signature if present :)
-(: COMMENTED OUT until crypto-lib issues resolved :)
-(:        else if (boolean($sig) and not(exsaml:verify-response-signature($id, $sig))) then :)
-(:            <exsaml:funcret res="-4" msg="failed to verify response signature" /> :)
+        else if (boolean($sig) and not(exsaml:verify-response-signature($id, $sig))) then
+            <exsaml:funcret res="4" msg="failed to verify response signature" />
 
         (: must contain at least one assertion :)
         else if (empty($as)) then (
@@ -305,9 +304,8 @@ declare %private function exsaml:validate-saml-assertion($id as xs:string, $asse
             )
 
             (: verify assertion signature if present :)
-(: COMMENTED OUT until crypto-lib issues resolved :)
-(:            else if (boolean($sig) and not(exsaml:verify-assertion-signature($id, $assertion))) then :)
-(:                <exsaml:funcret res="-10" msg="failed to verify assertion signature" /> :)
+            else if (boolean($sig) and not(exsaml:verify-assertion-signature($id, $assertion))) then
+                <exsaml:funcret res="4" msg="failed to verify assertion signature" />
 
             (: maybe verify SubjectConfirmation/@Method :)
 
