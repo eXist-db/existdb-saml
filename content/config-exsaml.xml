@@ -12,6 +12,12 @@
     <!--   @entity: just a namestring in URI format -->
     <!--   @endpoint: our HTTP endpoint to post SAML responses to -->
     <!--   @fallback-relaystate: used if IDP does not send a relaystate -->
+    <!--   @assertion-consumer-service-index: Indirectly identifies the location
+               to which the <Response> message should be returned to the requester by the IDP.
+               This is set on the Auth Request as the attributes 'AssertionConsumerServiceIndex'.
+               If the 'assertion-consumer-service-index' value is omitted from the config,
+               then an 'AssertionConsumerServiceURL' attribute holding the @endpoint value will
+               be set on the Auth Request instead. -->
     <sp entity="https://service-provider.example.org"
         endpoint="https://service-provider.example.org/SAML2SP"
         fallback-relaystate="https://service-provider.example.org"/>
