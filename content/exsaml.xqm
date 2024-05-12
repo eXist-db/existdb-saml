@@ -32,7 +32,7 @@ declare %private variable $exsaml:idp-force-rs    := data($exsaml:config/idp/@fo
 declare %private variable $exsaml:idp-verify-issuer := data($exsaml:config/idp/@verify-issuer);
 
 declare %private variable $exsaml:hmac-key := data($exsaml:config/crypto/@hmac-key);
-declare %private variable $exsaml:hmac-alg := data($exsaml:config/crypto/@hmac-alg);
+declare %private variable $exsaml:hmac-alg := "HMAC-SHA-256";
 declare %private variable $exsaml:token-minutes  := data($exsaml:config/token/@valid-mins);
 declare %private variable $exsaml:token-name     := data($exsaml:config/token/@name);
 declare %private variable $exsaml:token-separator := "=";
@@ -427,8 +427,7 @@ declare %private function exsaml:ensure-saml-user($id as xs:string, $nameid as x
 (: create user password as HMAC of username :)
 declare %private function exsaml:create-user-password($nameid as xs:string) as xs:string {
     let $key  := $exsaml:hmac-key || ""
-    let $alg  := $exsaml:hmac-alg || ""
-    let $pass := crypto:hmac($nameid, $key, $alg, "hex")
+    let $pass := crypto:hmac($nameid, $key, $exsaml:hmac-alg, "hex")
     return $pass
 };
 
@@ -519,9 +518,8 @@ declare function exsaml:invalidate-saml-token() as empty-sequence() {
 (: return the HMAC of the string token passed in :)
 declare %private function exsaml:hmac-tokval($tokval as xs:string) as xs:string {
     let $key  := $exsaml:hmac-key || ""
-    let $alg  := $exsaml:hmac-alg || ""
 
-    return crypto:hmac($tokval, $key, $alg, "hex")
+    return crypto:hmac($tokval, $key, $exsaml:hmac-alg, "hex")
 };
 
 (: build string token: join nameid and validto by $exsaml:token-separator :)

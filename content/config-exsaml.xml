@@ -41,7 +41,7 @@
     <!-- crypto settings -->
     <!--   @hmac-key: server-side secret key for HMACs -->
     <!--   @hmac-alg: HMAC algorithm -->
-    <crypto hmac-key="my secret key" hmac-alg="HMAC-SHA-256"/>
+    <crypto hmac-key="my secret key"/>
 
     <!-- token settings.  @valid-mins is important here.
          This defines how many minutes the local eXist DB will trust a SAML
