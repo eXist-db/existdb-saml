@@ -448,7 +448,7 @@ declare %private function exsaml:store-authnreqid-privileged($id as xs:string, $
         xmldb:store($collection, $id, <reqid>{$instant}</reqid>)
 };
 
-declare %private function exsaml:ensure-authnreqid-collection as xs:string {
+declare %private function exsaml:ensure-authnreqid-collection() as xs:string {
     let $collection := $exsaml:saml-coll-reqid-base || '/' || $exsaml:saml-coll-reqid-name
     let $_ :=
         if (not(xmldb:collection-available($collection)))
