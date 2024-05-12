@@ -58,7 +58,7 @@ declare %private variable $exsaml:status-success := "urn:oasis:names:tc:SAML:2.0
 declare %private variable $exsaml:status-badauth := "urn:oasis:names:tc:SAML:2.0:status:AuthnFailed";
 
 (: may be used to check if SAML is enabled at all :)
-declare function exsaml:is-enabled() {
+declare function exsaml:is-enabled() as xs:boolean {
     $exsaml:config/@enabled eq "true"
 };
 
@@ -135,7 +135,7 @@ declare %private function exsaml:build-saml-authnreq($id as xs:string) as elemen
  : session parameters.  Finally return authentication data to the caller,
  : so the user can be redirected to the requested resource.
  :)
-declare function exsaml:process-saml-response-post() {
+declare function exsaml:process-saml-response-post() as element(exsaml:authresult) {
     let $saml-resp := request:get-parameter("SAMLResponse", "NONE")
     return
         if ($saml-resp eq "NONE")
@@ -155,7 +155,7 @@ declare function exsaml:process-saml-response-post() {
  : Process a SAML response and return authentication data to the caller,
  : so the user can be redirected to the requested resource.
  :)
-declare %private function exsaml:process-saml-response-post-parsed($resp as element(samlp:Response)) {
+declare %private function exsaml:process-saml-response-post-parsed($resp as element(samlp:Response)) as element(exsaml:authresult) {
     let $id := $resp/@InResponseTo
     let $debug := exsaml:debug($id, "process-saml-response-parsed; response: ", $resp)
     let $valresult := exsaml:validate-saml-response($resp)
@@ -204,7 +204,7 @@ declare %private function exsaml:process-saml-response-post-parsed($resp as elem
  : A forced landing page may be configured, overriding the user URL.
  : A default RelayState may be configured, if no user URL is provided.
  :)
-declare %private function exsaml:determine-relay-state($id as xs:string, $rsin as xs:string) {
+declare %private function exsaml:determine-relay-state($id as xs:string, $rsin as xs:string) as xs:string {
     let $rsout :=
         (: if we accept IDP-initiated SAML *and* use a forced landing page :)
         if ($exsaml:idp-unsolicited and $exsaml:idp-force-rs ne "") then (
@@ -425,7 +425,7 @@ declare %private function exsaml:ensure-saml-user($id as xs:string, $nameid as x
 };
 
 (: create user password as HMAC of username :)
-declare %private function exsaml:create-user-password($nameid as xs:string) {
+declare %private function exsaml:create-user-password($nameid as xs:string) as xs:string {
     let $key  := $exsaml:hmac-key || ""
     let $alg  := $exsaml:hmac-alg || ""
     let $pass := crypto:hmac($nameid, $key, $alg, "hex")
@@ -463,13 +463,13 @@ declare %private function exsaml:ensure-authnreqid-collection() as xs:string {
 };
 
 (: retrieve issued SAML request id and delete if answered :)
-declare %private function exsaml:check-authnreqid($reqid as xs:string) {
+declare %private function exsaml:check-authnreqid($reqid as xs:string) as xs:string {
     let $debug := exsaml:debug($reqid, "verifying SAML request id")
     return
         exsaml:suexec(exsaml:check-authnreqid-privileged#1, [$reqid])
 };
 
-declare %private function exsaml:check-authnreqid-privileged($reqid as xs:string) {
+declare %private function exsaml:check-authnreqid-privileged($reqid as xs:string) as xs:string {
     if (exists(doc($exsaml:saml-coll-reqid||"/"||$reqid))
         and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))
     then $reqid
