@@ -1,6 +1,5 @@
 xquery version "3.1";
 
-(: the target collection into which the app is deployed :)
-declare variable $target external;
+import module namespace exsaml="http://exist-db.org/xquery/exsaml" at "/db/apps/existdb-saml/content/exsaml.xqm";
 
-sm:chmod(xs:anyURI($target||'/saml-request-ids'), 'rwx------')
+exsaml:ensure-authnreqid-collection()

@@ -51,7 +51,8 @@ declare %private variable $exsaml:fake-user   := data($exsaml:config/fake-idp/@u
 declare %private variable $exsaml:fake-group  := data($exsaml:config/fake-idp/@group);
 
 (: SAML specific constants and non-configurable vars :)
-declare %private variable $exsaml:saml-coll-reqid := "/db/apps/existdb-saml/saml-request-ids";
+declare %private variable $exsaml:saml-coll-reqid-base := "/db/apps/existdb-saml";
+declare %private variable $exsaml:saml-coll-reqid-name := "saml-request-ids";
 declare %private variable $exsaml:saml-version   := "2.0";
 declare %private variable $exsaml:status-success := "urn:oasis:names:tc:SAML:2.0:status:Success";
 (: debugging only to simulate failure in fake-idp :)
@@ -451,16 +452,23 @@ declare %private function exsaml:store-authnreqid($id as xs:string, $instant as 
 };
 
 declare %private function exsaml:store-authnreqid-privileged($id as xs:string, $instant as xs:dateTime) {
-    let $create-collection :=
-        if (not(xmldb:collection-available($exsaml:saml-coll-reqid)))
+    let $collection := exsaml:ensure-authnreqid-collection()
+    return
+        xmldb:store($collection, $id, <reqid>{$instant}</reqid>)
+};
+
+declare %private function exsaml:ensure-authnreqid-collection as xs:string {
+    let $collection := $exsaml:saml-coll-reqid-base || '/' || $exsaml:saml-coll-reqid-name
+    let $_ :=
+        if (not(xmldb:collection-available($collection)))
         then (
-            let $log := exsaml:log("info", $id, "collection " || $exsaml:saml-coll-reqid || " does not exist, attempting to create it")
-            return
-                xmldb:create-collection("/db/apps/existdb-saml", "saml-request-ids")
+            exsaml:log("info", "---", "creating collection " || $collection),
+            xmldb:create-collection($exsaml:saml-coll-reqid-base, $exsaml:saml-coll-reqid-name),
+	    sm:chmod(xs:anyURI($collection), "rwx------")
         )
         else ()
     return
-        xmldb:store($exsaml:saml-coll-reqid, $id, <reqid>{$instant}</reqid>)
+        $collection
 };
 
 (: retrieve issued SAML request id and delete if answered :)
