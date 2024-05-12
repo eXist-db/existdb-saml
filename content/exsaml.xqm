@@ -12,7 +12,6 @@ declare namespace xsi="http://www.w3.org/2001/XMLSchema-instance";
 (: additional modules needed for SAML processing :)
 import module namespace compression="http://exist-db.org/xquery/compression";
 import module namespace crypto="http://expath.org/ns/crypto";
-import module namespace semver="http://exist-db.org/xquery/semver";
 
 declare variable $exsaml:version := doc("../expath-pkg.xml")/*:package/@version/string();
 
@@ -57,10 +56,6 @@ declare %private variable $exsaml:saml-version   := "2.0";
 declare %private variable $exsaml:status-success := "urn:oasis:names:tc:SAML:2.0:status:Success";
 (: debugging only to simulate failure in fake-idp :)
 declare %private variable $exsaml:status-badauth := "urn:oasis:names:tc:SAML:2.0:status:AuthnFailed";
-
-(: quirks :)
-(: eXist-db >= 5.3.0 returns a parsed XML fragment wrapped in a document node, earlier versions did not :)
-declare variable $exsaml:quirk-pre53-parsexmlfragment := semver:lt(system:get-version(), "5.3.0");
 
 (: may be used to check if SAML is enabled at all :)
 declare function exsaml:is-enabled() {
@@ -150,13 +145,9 @@ declare function exsaml:process-saml-response-post() {
                 <authresult msg="No SAML response data provided"/>
         )
         else (
-            let $parsed-resp := fn:parse-xml-fragment(util:base64-decode($saml-resp))
-            let $real-resp :=
-                if ($exsaml:quirk-pre53-parsexmlfragment)
-                then $parsed-resp
-                else $parsed-resp/samlp:Response
+            let $resp := fn:parse-xml-fragment(util:base64-decode($saml-resp))
             return
-                exsaml:process-saml-response-post-parsed($real-resp)
+                exsaml:process-saml-response-post-parsed($resp/samlp:Response)
         )
 };
 
@@ -164,7 +155,7 @@ declare function exsaml:process-saml-response-post() {
  : Process a SAML response and return authentication data to the caller,
  : so the user can be redirected to the requested resource.
  :)
-declare %private function exsaml:process-saml-response-post-parsed($resp as node()) {
+declare %private function exsaml:process-saml-response-post-parsed($resp as element(samlp:Response)) {
     let $id := $resp/@InResponseTo
     let $debug := exsaml:debug($id, "process-saml-response-parsed; response: ", $resp)
     let $valresult := exsaml:validate-saml-response($resp)
@@ -275,7 +266,7 @@ declare %private function exsaml:validate-saml-response($resp as node()) as elem
 };
 
 (: validate a SAML assertion :)
-declare %private function exsaml:validate-saml-assertion($id as xs:string, $assertion as item()) as element(exsaml:funcret) {
+declare %private function exsaml:validate-saml-assertion($id as xs:string, $assertion as element(saml:Assertion) as element(exsaml:funcret) {
     if(empty($assertion))
     then (
         let $log := exsaml:log("notice", $id, "Error: Empty Assertion")
@@ -560,13 +551,8 @@ declare function exsaml:process-saml-request() as element(html) {
     let $strg := util:base64-decode($uncomp)
     (: let $debug := exsaml:debug("Fake IDP: process-saml-request; strg: " || $strg) :)
     let $req := fn:parse-xml-fragment($strg)
-    let $real-req :=
-        if ($exsaml:quirk-pre53-parsexmlfragment)
-        then $req
-        else $req/samlp:AuthnRequest
-    (: let $debug := exsaml:debug("Fake IDP: process-saml-request; req: ", $real-req) :)
     let $rs := request:get-parameter("RelayState", false())
-    let $resp := exsaml:fake-idp-response($real-req, $rs)
+    let $resp := exsaml:fake-idp-response($req/samlp:AuthnRequest, $rs)
     return $resp
 };
 
