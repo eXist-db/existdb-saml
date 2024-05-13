@@ -17,45 +17,45 @@ declare variable $exsaml:version := doc("../expath-pkg.xml")/*:package/@version/
 
 (: pull config from config-exsaml.xml :)
 (: NEED TO CHECK IF CONFIG EXISTS :)
-declare %private variable $exsaml:config   := doc("config-exsaml.xml")/config;
+declare %private variable $exsaml:config            := doc("config-exsaml.xml")/config;
 
-declare %private variable $exsaml:debug    := data($exsaml:config/@debug);
-declare %private variable $exsaml:sp-ent   := data($exsaml:config/sp/@entity);
-declare %private variable $exsaml:sp-uri   := data($exsaml:config/sp/@endpoint);
+declare %private variable $exsaml:debug             := data($exsaml:config/@debug);
+declare %private variable $exsaml:sp-ent            := data($exsaml:config/sp/@entity);
+declare %private variable $exsaml:sp-uri            := data($exsaml:config/sp/@endpoint);
 declare %private variable $exsaml:sp-assertion-consumer-service-index := data($exsaml:config/sp/@assertion-consumer-service-index);
-declare %private variable $exsaml:sp-fallback-rs := data($exsaml:config/sp/@fallback-relaystate);
-declare %private variable $exsaml:idp-ent  := data($exsaml:config/idp/@entity);
-declare %private variable $exsaml:idp-uri  := data($exsaml:config/idp/@endpoint);
+declare %private variable $exsaml:sp-fallback-rs    := data($exsaml:config/sp/@fallback-relaystate);
+declare %private variable $exsaml:idp-ent           := data($exsaml:config/idp/@entity);
+declare %private variable $exsaml:idp-uri           := data($exsaml:config/idp/@endpoint);
 declare %private variable $exsaml:idp-validate-signatures := data($exsaml:config/idp/@validate-signatures);
-declare %private variable $exsaml:idp-unsolicited := data($exsaml:config/idp/@accept-unsolicited);
-declare %private variable $exsaml:idp-force-rs    := data($exsaml:config/idp/@force-relaystate);
+declare %private variable $exsaml:idp-unsolicited   := data($exsaml:config/idp/@accept-unsolicited);
+declare %private variable $exsaml:idp-force-rs      := data($exsaml:config/idp/@force-relaystate);
 declare %private variable $exsaml:idp-verify-issuer := data($exsaml:config/idp/@verify-issuer);
 
-declare %private variable $exsaml:hmac-key := data($exsaml:config/crypto/@hmac-key);
-declare %private variable $exsaml:hmac-alg := "HMAC-SHA-256";
-declare %private variable $exsaml:token-minutes  := data($exsaml:config/token/@valid-mins);
-declare %private variable $exsaml:token-name     := data($exsaml:config/token/@name);
-declare %private variable $exsaml:token-separator := "=";
+declare %private variable $exsaml:hmac-key          := data($exsaml:config/crypto/@hmac-key);
+declare %private variable $exsaml:hmac-alg          := "HMAC-SHA-256";
+declare %private variable $exsaml:token-minutes     := data($exsaml:config/token/@valid-mins);
+declare %private variable $exsaml:token-name        := data($exsaml:config/token/@name);
+declare %private variable $exsaml:token-separator   := "=";
 (: needed for priv escalation :)
-declare %private variable $exsaml:exsaml-user   := data($exsaml:config/exsaml-creds/@username);
-declare %private variable $exsaml:exsaml-pass   := data($exsaml:config/exsaml-creds/@pass);
+declare %private variable $exsaml:exsaml-user       := data($exsaml:config/exsaml-creds/@username);
+declare %private variable $exsaml:exsaml-pass       := data($exsaml:config/exsaml-creds/@pass);
 (: SSO users configuration :)
 declare %private variable $exsaml:sso-create-users  := data($exsaml:config/sso-users/@create-users);
 declare %private variable $exsaml:sso-userdata      := data($exsaml:config/sso-users/@data);
 declare %private variable $exsaml:sso-default-realm := data($exsaml:config/sso-users/@default-realm);
 (: only used for fake IDP response testing :)
-declare %private variable $exsaml:minutes-valid := data($exsaml:config/fake-idp/@minutes-valid);
-declare %private variable $exsaml:fake-result := data($exsaml:config/fake-idp/@result);
-declare %private variable $exsaml:fake-user   := data($exsaml:config/fake-idp/@user);
-declare %private variable $exsaml:fake-group  := data($exsaml:config/fake-idp/@group);
+declare %private variable $exsaml:minutes-valid     := data($exsaml:config/fake-idp/@minutes-valid);
+declare %private variable $exsaml:fake-result       := data($exsaml:config/fake-idp/@result);
+declare %private variable $exsaml:fake-user         := data($exsaml:config/fake-idp/@user);
+declare %private variable $exsaml:fake-group        := data($exsaml:config/fake-idp/@group);
 
 (: SAML specific constants and non-configurable vars :)
 declare %private variable $exsaml:saml-coll-reqid-base := "/db/apps/existdb-saml";
 declare %private variable $exsaml:saml-coll-reqid-name := "saml-request-ids";
-declare %private variable $exsaml:saml-version   := "2.0";
-declare %private variable $exsaml:status-success := "urn:oasis:names:tc:SAML:2.0:status:Success";
+declare %private variable $exsaml:saml-version         := "2.0";
+declare %private variable $exsaml:status-success       := "urn:oasis:names:tc:SAML:2.0:status:Success";
 (: debugging only to simulate failure in fake-idp :)
-declare %private variable $exsaml:status-badauth := "urn:oasis:names:tc:SAML:2.0:status:AuthnFailed";
+declare %private variable $exsaml:status-badauth       := "urn:oasis:names:tc:SAML:2.0:status:AuthnFailed";
 
 (: may be used to check if SAML is enabled at all :)
 declare function exsaml:is-enabled() as xs:boolean {
@@ -79,7 +79,7 @@ declare function exsaml:info() {
 (:~
  : Build a SAML authentication request and encode it suitable for an HTTP
  : redirect URL, as specified in the SAML Web Browser SSO Redirect-POST profile.
- : This function is called from the controller when a request without valid
+ : These functions are called from the controller when a request without valid
  : token is found, so that the user gets sent to the SAML IDP.
  :
  : There are two forms of this function:
@@ -256,7 +256,9 @@ declare %private function exsaml:validate-saml-response($resp as node()) as elem
 
         (: check that "Issuer" is the expected IDP.  Not stricty required by
            SAML specs, but adds extra protection against forged SAML responses. :)
-        else if ($exsaml:idp-verify-issuer eq "true" and boolean($resp/saml:Issuer) and $resp/saml:Issuer ne $exsaml:idp-ent) then (
+        else if ($exsaml:idp-verify-issuer eq "true"
+                 and boolean($resp/saml:Issuer)
+                 and $resp/saml:Issuer ne $exsaml:idp-ent) then (
             let $msg := "SAML response from unexpected IDP: " || $resp/saml:Issuer
             return
                 <exsaml:funcret res="-6" msg="{$msg}" data="{$resp/saml:Issuer}"/>
@@ -268,24 +270,24 @@ declare %private function exsaml:validate-saml-response($resp as node()) as elem
 
         (: must contain at least one assertion :)
         else if (empty($as)) then (
-                <exsaml:funcret res="-5" msg="no assertions present" />
+            <exsaml:funcret res="-5" msg="no assertions present" />
         )
-            (: validate all assertions - only first by now :)
-            else (
-                exsaml:validate-saml-assertion($id, $as)
-            )
+
+        (: validate all assertions - only first by now :)
+        else (
+            exsaml:validate-saml-assertion($id, $as)
+        )
 
     return $result
 };
 
 (: validate a SAML assertion :)
 declare %private function exsaml:validate-saml-assertion($id as xs:string, $assertion as element(saml:Assertion) as element(exsaml:funcret) {
-    if(empty($assertion))
+    if (empty($assertion))
     then (
         let $log := exsaml:log("notice", $id, "Error: Empty Assertion")
         return
             <exsaml:funcret res="-19" msg="no assertion present" />
-
     )
     else (
         let $debug := exsaml:debug($id, "validate-saml-assertion; assertion: ", $assertion)
@@ -298,7 +300,6 @@ declare %private function exsaml:validate-saml-assertion($id as xs:string, $asse
 
             (: check that "Issuer" is the expected IDP.  Not stricty required by
                SAML specs, but adds extra protection against forged SAML responses. :)
-
             if ($exsaml:idp-verify-issuer eq "true"
                 and boolean($assertion/saml:Issuer)
                 and $assertion/saml:Issuer ne $exsaml:idp-ent)
@@ -312,7 +313,7 @@ declare %private function exsaml:validate-saml-assertion($id as xs:string, $asse
             else if (boolean($sig) and not(exsaml:verify-assertion-signature($id, $assertion))) then
                 <exsaml:funcret res="4" msg="failed to verify assertion signature" />
 
-            (: maybe verify SubjectConfirmation/@Method :)
+            (: no verification of SubjectConfirmation/@Method :)
 
             (: verify SubjectConfirmationData/@Recipient is SP URL ($sp-uri) :)
             else if ($subj-confirm-data/@Recipient ne $exsaml:sp-uri) then
@@ -320,7 +321,7 @@ declare %private function exsaml:validate-saml-assertion($id as xs:string, $asse
 
             (: verify SubjectConfirmationData/@NotOnOrAfter is not later than now :)
             else if (xs:dateTime(fn:current-dateTime()) ge xs:dateTime($subj-confirm-data/@NotOnOrAfter)) then
-                    <exsaml:funcret res="-12" msg="assertion no longer valid" data="{$subj-confirm-data/@NotOnOrAfter}"/>
+                <exsaml:funcret res="-12" msg="assertion no longer valid" data="{$subj-confirm-data/@NotOnOrAfter}"/>
 
             (: verify SubjectConfirmationData/@InResponseTo is present in the SAML response :)
             else if (not($reqid)) then (
@@ -334,24 +335,24 @@ declare %private function exsaml:validate-saml-assertion($id as xs:string, $asse
 
             (: else verify SubjectConfirmationData/@InResponseTo equal to orig AuthnRequest ID :)
             else if (not(exsaml:check-authnreqid($reqid))) then (
-                    <exsaml:funcret res="-13" msg="did not send this SAML request" data="{$subj-confirm-data/@InResponseTo}"/>
+                <exsaml:funcret res="-13" msg="did not send this SAML request" data="{$subj-confirm-data/@InResponseTo}"/>
             )
 
-            (: verify assertions are valid in other respects - none yet :)
+            (: no verifification whether assertions are valid in other respects :)
 
             (: verify Conditions/@NotBefore is not earlier than now :)
             else if (xs:dateTime(fn:current-dateTime()) lt xs:dateTime($conds/@NotBefore)) then (
-                    <exsaml:funcret res="-14" msg="condition not yet valid" data="{$conds/@NotBefore}"/>
+                <exsaml:funcret res="-14" msg="condition not yet valid" data="{$conds/@NotBefore}"/>
             )
 
             (: verify Conditions/@NotOnOrAfter is not later than now :)
             else if (xs:dateTime(fn:current-dateTime()) ge xs:dateTime($conds/@NotOnOrAfter)) then (
-                    <exsaml:funcret res="-15" msg="condition no longer valid" data="{$conds/@NotOnOrAfter}"/>
+                <exsaml:funcret res="-15" msg="condition no longer valid" data="{$conds/@NotOnOrAfter}"/>
             )
 
             (: verify Conditions/AudienceRestriction/Audience is myself ($sp-ent) :)
             else if ($conds/saml:AudienceRestriction/saml:Audience ne $exsaml:sp-ent) then
-                    <exsaml:funcret res="-16" msg="audience not for me" data="{$conds/saml:AudienceRestriction/saml:Audience}"/>
+                <exsaml:funcret res="-16" msg="audience not for me" data="{$conds/saml:AudienceRestriction/saml:Audience}"/>
 
             else
                 <exsaml:funcret res="0" msg="ok" />
@@ -535,7 +536,6 @@ declare function exsaml:invalidate-saml-token() as empty-sequence() {
 (: return the HMAC of the string token passed in :)
 declare %private function exsaml:hmac-tokval($tokval as xs:string) as xs:string {
     let $key  := $exsaml:hmac-key || ""
-
     return crypto:hmac($tokval, $key, $exsaml:hmac-alg, "hex")
 };
 
@@ -551,7 +551,8 @@ declare %private function exsaml:set-saml-token($id as xs:string, $nameid as xs:
     let $debug := exsaml:debug($id, "set-saml-token; nameid: " || $nameid || ", validto: " || $validto)
     let $hmac := exsaml:hmac-tokval($tok)
     let $log  := exsaml:log("info", $id, "set saml token for: " || $nameid || ", authndate: " || $authndate || ", valid until: " || $validto || ", hmac: " || $hmac)
-    return session:set-attribute($exsaml:token-name, $tok || $exsaml:token-separator || $hmac)
+    return
+        session:set-attribute($exsaml:token-name, $tok || $exsaml:token-separator || $hmac)
 };
 
 
@@ -564,11 +565,8 @@ declare %private function exsaml:set-saml-token($id as xs:string, $nameid as xs:
  :)
 declare function exsaml:process-saml-request() as element(html) {
     let $raw := request:get-parameter("SAMLRequest", "")
-    (: let $debug := exsaml:debug("Fake IDP: process-saml-request; raw: " || $raw) :)
     let $uncomp := compression:inflate($raw, true())
-    (: let $debug := exsaml:debug("Fake IDP: process-saml-request; uncomp: " || $uncomp) :)
     let $strg := util:base64-decode($uncomp)
-    (: let $debug := exsaml:debug("Fake IDP: process-saml-request; strg: " || $strg) :)
     let $req := fn:parse-xml-fragment($strg)
     let $rs := request:get-parameter("RelayState", false())
     let $resp := exsaml:fake-idp-response($req/samlp:AuthnRequest, $rs)
@@ -577,7 +575,6 @@ declare function exsaml:process-saml-request() as element(html) {
 
 (: fake SAML IDP response: build response and return via XHTML autosubmit form :)
 declare %private function exsaml:fake-idp-response($req as node(), $rs as xs:string) as element(html) {
-    (: let $debug := exsaml:debug("Fake IDP: fake-idp-response") :)
     let $resp := exsaml:build-saml-fakeresp($req)
     let $b64resp := util:base64-encode(fn:serialize($resp))
 
@@ -649,7 +646,6 @@ declare %private function exsaml:gen-id() as xs:string {
     let $uuid := util:uuid()
     return "a" || $uuid
 };
-
 
 (:~
  : Log a message to the system log.
