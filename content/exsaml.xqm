@@ -82,8 +82,18 @@ declare function exsaml:info() {
  : This function is called from the controller when a request without valid
  : token is found, so that the user gets sent to the SAML IDP.
  :
- : @param relaystate this is the path component of the resource that the user
- :  initially requested, so that she gets sent there after SAML auth.
+ : There are two forms of this function:
+ : build-authnreq-redir-url#1 uses the default realm to assign group membership for
+ :   authenticated SAML users. It is compatible with pre-v2.0 versions of this module.
+ : build-authnreq-redir-url#2 specifies an explicit realm. It has to be called in the
+ :   controller of a SAML authenticated app for group membership to be derived for the
+ :   named realm.
+ :
+ : @param $relaystate - this is the path component of the resource that the user
+ :   initially requested, so that she gets sent there after SAML auth.
+ : @param $realm - a named realm to lookup user permissions after successful SAML auth
+ : @return a string that resembles the HTTP URI to call at the remote IDP, with the encoded
+ :   SAML authentication request
  :)
 declare function exsaml:build-authnreq-redir-url($relaystate as xs:string) as xs:string {
     exsaml:build-authnreq-redir-url($relaystate, $exsaml:sso-default-realm)
@@ -134,6 +144,9 @@ declare %private function exsaml:build-saml-authnreq($id as xs:string) as elemen
  : authentication is valid, create local DB user and put SAML token into
  : session parameters.  Finally return authentication data to the caller,
  : so the user can be redirected to the requested resource.
+ :
+ : @return an "authresult" element that signals SAML success/failure to an app
+ : controller
  :)
 declare function exsaml:process-saml-response-post() as element(exsaml:authresult) {
     let $saml-resp := request:get-parameter("SAMLResponse", "NONE")
@@ -479,8 +492,10 @@ declare %private function exsaml:check-authnreqid-privileged($reqid as xs:string
 (: ==== FUNCTIONS TO DEAL WITH TOKENS ==== :)
 
 (:~
- : Check whether a SAML token exists and is valid.  Return boolean.
- : This is called from the controller(s) to check if access should be granted.
+ : Check whether a SAML token exists and is valid. This will be called from controller(s)
+ : to check if access should be granted based on the presence of a valid token.
+ :
+ : @return boolean true if browser session token is valid, fale otherwise
  :)
 declare function exsaml:check-valid-saml-token() as xs:boolean {
     let $raw := session:get-attribute($exsaml:token-name)
@@ -504,6 +519,8 @@ declare function exsaml:check-valid-saml-token() as xs:boolean {
  : Invalidate a SAML token, by creating one with expire date in the past,
  : so that it will fail token expiration checks.
  : This is called from the controller(s) upon user logout.
+ :
+ : @return an empty sequence
  :)
 declare function exsaml:invalidate-saml-token() as empty-sequence() {
     let $user := sm:id()/sm:id/sm:real/sm:username
@@ -540,7 +557,11 @@ declare %private function exsaml:set-saml-token($id as xs:string, $nameid as xs:
 
 (: ==== FUNCTIONS TO FAKE A SAML IDP (testing only) ==== :)
 
-(: process SAML AuthnRequest, return SAML Response via POST :)
+(:~
+ : Fake IDP: process SAML AuthnRequest, return SAML Response via POST
+ :
+ : @return HTML to autosubmit a SAML response to the service provider endpoint
+ :)
 declare function exsaml:process-saml-request() as element(html) {
     let $raw := request:get-parameter("SAMLRequest", "")
     (: let $debug := exsaml:debug("Fake IDP: process-saml-request; raw: " || $raw) :)
@@ -629,26 +650,45 @@ declare %private function exsaml:gen-id() as xs:string {
     return "a" || $uuid
 };
 
+
+(:~
+ : Log a message to the system log.
+ :
+ : @param $level - a log level string like "info", "notice" or warning, see util:log() doc
+ : @param $id - a correlation id string, usually the SAML request ID of SAML transaction
+ : @param $msg - a message string to log
+ : @return boolean true
+ :)
 declare function exsaml:log($level as xs:string, $id as xs:string, $msg as xs:string) as xs:boolean {
     let $l := util:log($level, "exsaml: [" || $id || "] " || $msg)
     return true()
 };
 
-declare function exsaml:debug($id as xs:string, $msg as xs:string, $data as item()) as xs:boolean {
-    let $l :=
-        if ($exsaml:debug eq 'true')
-        then (
- 	    let $ser := fn:serialize($data)
-            return util:log('info', "exsaml-debug: [" || $id || "] " || $msg || " " || $ser)
-        ) else ()
-    return true()
-};
-
+(:~
+ : Log a debug message to the system log, only if "debug" is enabled in the config
+ :
+ : There are two forms of this function:
+ : debug#1 logs a simple string
+ : debug#2 logs a simple string, plus a serialized data item appended to it
+ :
+ : @param $id - a correlation id string, usually the SAML request ID of SAML transaction
+ : @param $msg - a message string to log
+ : @return boolean true
+ :)
 declare function exsaml:debug($id as xs:string, $msg as xs:string) as xs:boolean {
     let $l :=
         if ($exsaml:debug eq 'true')
         then (
             util:log('info', "exsaml-debug: [" || $id || "] " || $msg)
+        ) else ()
+    return true()
+};
+declare function exsaml:debug($id as xs:string, $msg as xs:string, $data as item()) as xs:boolean {
+    let $l :=
+        if ($exsaml:debug eq 'true')
+        then (
+            let $ser := fn:serialize($data)
+            return util:log('info', "exsaml-debug: [" || $id || "] " || $msg || " " || $ser)
         ) else ()
     return true()
 };
