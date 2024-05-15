@@ -182,6 +182,239 @@ else (
 )
 ```
 
+## Using existdb-saml with Multiple Apps
+
+Ignore this section if there is only a single eXist-db application that uses `existdb-saml`.
+
+### History
+
+`existdb-saml` was initially written to support SAML for a single eXist-db app. For this, the
+`controller.xql` has to be edited to add SAML handling as shown in the example above. Effectively,
+this application controls the use of SAML on this eXist-db host, because its `controller.xql`
+implements the service provider endpoint that the IDP posts SAML authentication responses to.
+
+It was possible to support SAML in a second application on the same eXist-db host, but this required
+a somewhat arcane controller configuration in both the "leading" app that interacts with the SAML
+IDP, and the second application that piggybacks on the "leading" app doing SAML transactions.
+Also, it would only work if the two applications shared the same userbase.  It was not possible
+to specify a user that is authenticated to only one app, but not the other.
+
+`existdb-saml` v2 addresses this issue by introducing support for multiple authentication realms.
+
+### Multiple Authentication Realms: Basic Concepts
+
+The SAML IDP confirms that a certain username is authenticated. This username is mapped to
+an eXist-db user that executes queries.
+
+eXist-db applications can specify authentication contexts called "realms". A realm maps
+an authenticated username to an eXist-db user with certain group membership, for a specific
+app.
+
+This way, multiple apps running on the same eXist-db server can authenticate against the
+same SAML IDP, but still assign fine grained access control to their resources.
+
+Configuration file `sso-users.xml` defines a list of recognized user names, the authentication
+realms they are assigned to, and their group memberships for a specific realm. `existdb-saml`
+will create the specified user as an eXist-db user (unless prohibited, see below).
+It will login these users to eXist-db, and their group membership defines what these users can
+read or write.
+
+Access control is defined by group permissions of the installed application files. This is
+usually specified by the `meta/permissions` element in file `repo.xml` of an application.
+
+### On-Demand User Creation
+
+`existdb-saml` is able to create eXist-db users dynamically if they do not exist yet, assigning
+group membership as specified in configuration file `sso-users.xml`.
+
+This is **disabled** by default, as user creation is not required for simple configurations.
+
+Having some or all SAML-authenticated users created as eXist-db is required in the
+following situations:
+
+- for a single app, different user roles with different permissions are used (eg "read-only" vs.
+  "read-write" users)
+- multiple SAML-authenticated apps are used, and different users for different apps need
+  different permissions
+- an app requires eXist-db user, eg to keep user specific settings
+
+In these cases, it is *recommended* to let `existdb-saml` create users dynamically by
+setting `config/sso-users/@create-users="true"`.
+
+Sites that want explicit control over eXist-db user creation may choose to leave this
+disabled. The eXist-db exist must then be created by other means, with correct group
+membership and a password that matches the passwords genereated by `existdb-saml` (HMAC
+of SAML-authenticated user ID). This may get cumbersome. The examples below assume
+`create-users=true` for simplicity.
+
+### Multiple Authentication Realms: Configuration Examples
+
+Scenario: ACME Org uses eXist-db for their data and SAML for authentication. ACME Org is
+growing from a single project team to multiple project teams that each run their own
+eXist-db application, and will need finer grained aces control for these apps.
+
+#### Most Simple Use Case: Single Default Realm, Only Default User
+
+This simple configuration would be used if there is only a single application that needs SAML
+authentication, and all SAML-authenticated users share the same access privileges.
+Because there is only one realm, the built-in default realm can be used (without having to
+define a specific realm), and because all users share the same privileges, these privileges
+can be assigned to the default user for that realm. This configuration is actually the
+default in the configuration files shipped with `existdb-saml`.
+
+File `config-exsaml.xml`, element `config/sso-users` looks like this (assuming `create-users=true`):
+```
+    <sso-users create-users="true" data="/db/apps/existdb-saml/content/sso-users.xml"
+               default-realm="default-realm"/>
+```
+
+File `sso-users.xml` would look like this (setting group membership for all users to `acme`):
+```
+<sso-users>
+    <user>
+        <default-realm user="default-user" group="acme">
+            <groups/>
+        </default-realm>
+    </user>
+</sso-users>
+```
+
+To have an application (a Xar package) install files with the required permissions, it would use
+a line like this in file `repo.xml` (note "group=acme, and mode allows read and write for group
+members):
+```
+  <permissions user="acme" group="acme" password="somepassword" mode="rwxrwxr-x"/>
+```
+
+#### Use Case: Single App, but Multiple Roles for Different Users
+
+In this use case, there is a single app "acme-reports" that allows read access to everyone, but
+write access only to members of the `acme-editor` group.
+
+For a single app, the built-in default realm may still be used, but it may make more sense to
+choose meaningful realm names in the configuration. A realm name is just a string identifier.
+in this example, the name of the app is used as the realm name, which improves readability of
+the ``sso-users.xml` file.
+
+File `config-exsaml.xml`, element `config/sso-users` gets changed to use default realm
+`acme-reports` which happens to be the name of the single app.
+```
+    <sso-users create-users="true" data="/db/apps/existdb-saml/content/sso-users.xml"
+               default-realm="acme-reports"/>
+```
+
+File `sso-users.xml` defines certain editor users in the `acme-reports` realm. These users
+become members of the `acme-editors` group, and will have write permissions for the app data.
+All other authenticated users for this realm are not specified, so they get mapped to the
+default user for this realm. Note all user definition refer to realm "acme-reports".
+```
+<sso-users>
+    <!-- users jack and jill are editors with write permissions, being a member of group
+         "report-editors". They are also a member of the general "acme" group that everyone
+         else is a member of. -->
+    <user>
+        <acme-reports user="jack@example.org" group="report-editors">
+            <groups>
+                <group>acme</group>
+            </groups>
+        </acme-reports>
+    </user>
+    <user>
+        <acme-reports user="jill@example.org" group="report-editors">
+            <groups>
+                <group>acme</group>
+            </groups>
+        </acme-reports>
+    </user>
+    <!-- every other authenticated user is mapped to the default user for this realm.
+         That means, member of the (read-only) "acme" group, but not member of the
+         (read-and-write) "report-editors" group. -->
+    <user>
+        <acme-reports user="default-user" group="acme">
+            <groups/>
+        </acme-reports>
+    </user>
+</sso-users>
+```
+
+The "acme-reports" app would install all documents owned by group "acme-reports". Only members
+of this group are allowed to modify a document, while all other users may read them. The relevant
+line in `repo.xml` of this app might look like:
+```
+  <permissions user="acme" group="report-editors" password="somepassword" mode="rwxrwxr-x"/>
+```
+
+#### Use Case: Two Different Apps, Disjunct User Groups
+
+Extending the previous example, ACME Org establishes a new "acme-research" group in addition to
+the "acme-reports" group. Both groups publish their data in their own apps named after their
+groups.
+
+File `sso-users.xml` defines 3 named users who have editor permissions for one or both apps.
+As before, realms are named after the app they relate to.
+```
+<sso-users>
+    <!-- user jack is an editor with write permissions for both "acme-reports" and
+         "acme-research", being a member of both groups, and also the general "acme" group. -->
+    <user>
+        <acme-reports user="jack@example.org" group="report-editors">
+            <groups>
+                <group>acme</group>
+            </groups>
+        </acme-reports>
+        <acme-research user="jack@example.org" group="research-editors">
+            <groups>
+                <group>acme</group>
+            </groups>
+        </acme-research>
+    </user>
+    <!-- user jill is an editor with write permissions for both "acme-reports", and the "acme" group. -->
+    <user>
+        <acme-reports user="jill@example.org" group="report-editors">
+            <groups>
+                <group>acme</group>
+            </groups>
+        </acme-reports>
+    </user>
+    <!-- user james is an editor with write permissions for "acme-research", and the "acme" group. -->
+    <user>
+        <acme-research user="james@example.org" group="research-editors">
+            <groups>
+                <group>acme</group>
+            </groups>
+        </acme-research>
+    </user>
+    <!-- every other authenticated user is mapped to the default user for each realm. -->
+    <user>
+        <acme-reports user="default-user" group="acme">
+            <groups/>
+        </acme-reports>
+        <acme-research user="default-user" group="acme">
+            <groups/>
+        </acme-research>
+    </user>
+</sso-users>
+```
+
+#### More Complex Use Cases
+
+More complex use cases with finer grained control are possible, but that gets too
+complex for this documentation. General recommendations:
+
+- if you need to configure multiple realms, choose recognizable realm names. Using
+  the app name for the realm name may be a good start;
+- use the "default-user" concept where possible, so you only have to define users
+  whose permissions deviate from the defaults;
+- permissions are set **on the data**. eXist-db apps are expected to assign
+  owner/group/permissions to the documents they install. The multi-realm mechanism
+  only serves to assign group membership to a SAML authenticated user
+  - a simple way to specify permissions is to use the `permissions` element in the
+    `repo.xml` config file of the application, as shown in the examples above. This
+    way, the specifed `user` and `group` get automatically created during app
+    installation, and all documents have correct default permissions;
+  - more complex scenarios could be set up from `post-install.xql` (creating
+    additional groups or assigning specific permissions on selected documents)
+
 ## Misc
 
 ### Security
