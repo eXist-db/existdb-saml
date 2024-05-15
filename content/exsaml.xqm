@@ -15,10 +15,11 @@ import module namespace crypto="http://expath.org/ns/crypto";
 
 declare variable $exsaml:version := doc("../expath-pkg.xml")/*:package/@version/string();
 
+declare %private variable $exsaml:config            := if (doc-available("config-exsaml.xml"))
+                                                       then (doc("config-exsaml.xml")/config)
+                                                       else (error(xs:QName("exsaml:config-not-available"),
+                                                                   "config-exsaml.xml not found"));
 (: pull config from config-exsaml.xml :)
-(: NEED TO CHECK IF CONFIG EXISTS :)
-declare %private variable $exsaml:config            := doc("config-exsaml.xml")/config;
-
 declare %private variable $exsaml:debug             := data($exsaml:config/@debug);
 declare %private variable $exsaml:sp-ent            := data($exsaml:config/sp/@entity);
 declare %private variable $exsaml:sp-uri            := data($exsaml:config/sp/@endpoint);
@@ -63,7 +64,7 @@ declare function exsaml:is-enabled() as xs:boolean {
 };
 
 (: dump current config data :)
-declare function exsaml:info() {
+declare function exsaml:info() as map(*) {
     map {
       'enabled': exsaml:is-enabled(),
       'version': $exsaml:version,
