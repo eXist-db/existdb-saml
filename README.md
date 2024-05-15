@@ -123,6 +123,9 @@ In EXide, you could do this by executing
 
 ### Edit controller.xql of Your Application
 
+NOTE: previous versions of this document had the if/else logic wrong in this example.
+Thanks to @adamretter for pointing this out.
+
 You need to adjust the `controller.xql` of your application like this in order
 to use SAML:
 
@@ -134,40 +137,21 @@ import module namespace exsaml="http://exist-db.org/xquery/exsaml" at 'xmldb:///
    that gets auto-submitted by the user's browser, back to the SP (eXist) :)
 declare option exist:serialize "method=html media-type=text/html indent=no";
 
-(: if no valid token, redirect to SAML auth :)
-if (exsaml:is-enabled() and not(exsaml:check-valid-saml-token()))
-then (
-    let $debug := exsaml:log('info', "controller: no valid token, redirect to SAML auth")
-    let $return-path := "/exist/apps" || $exist:controller || $exist:path
-    return
-        <dispatch xmlns="http://exist.sourceforge.net/NS/exist">
-            <redirect url="{exsaml:build-authnreq-redir-url($return-path)}">
-                <set-header name="Cache-Control" value="no-cache, no-store" />
-                <set-header name="Pragma" value="no-cache" />
-            </redirect>
-        </dispatch>
-    )
+(: SAML authentication realm used by this application, using the implicit
+   default realm. You may want to define a realm that matches settings in
+   content/sso-users.xml :)
+declare variable $realm := "default-realm";
 
-(: if logout, invalidate SAML token :)
-else if ($exist:path = '/logout')
+(: handle IDP responses posted to out /SAML2SP endpoint :)
+if ($exist:path = "/SAML2SP")
 then (
-    if (exsaml:is-enabled())
-    then exsaml:invalidate-saml-token()
-    else ()
-    ,
-    <dispatch> ... </dispatch>
-    )
-
-(: handle SP endpoint to process SAML response in HTTP POST :)
-else if($exist:path = "/SAML2SP")
-then (
-    let $log := util:log('info', "SAML2SP: processing SAML response")
     let $status := exsaml:process-saml-response-post()
-    let $log := util:log('debug', "endpoint SAML2SP; status: " || $status/@code)
+    let $id := $status/@rid
+    let $log := exsaml:log('info', $id, "SAML2SP: processing SAML response; status: " || $status/@code)
     return
         if ($status/@code >= 0) then
             (: forward to page that was requested by the user :)
-            let $debug := util:log("info", "Auth success - code " || $status/@code || " - relaystate: " || $status/@relaystate)
+            let $log := exsaml:log("info", $id, "Auth success - code " || $status/@code || " - relaystate: " || $status/@relaystate)
             return
                 <dispatch xmlns="http://exist.sourceforge.net/NS/exist">
                     <redirect url="{$status/@relaystate}"/>
@@ -176,6 +160,41 @@ then (
             (: if SAML failed, display an error message for now :)
             <data>{string($status/@msg) || ": " || string($status/@data)}</data>
 )
+else
+
+(: this is only needed for debugging using "fake-idp" and should be removed/commented
+   on production systems :)
+if ($exist:path = "/SAML2IDP")
+then
+    exsaml:process-saml-request()
+else
+
+(: handle any URL routes that don't require SAML authentication (CSS, fonts, images ...)
+
+(: if logout, invalidate SAML token :)
+if ($exist:path = '/logout')
+then (
+    if (exsaml:is-enabled())
+    then exsaml:invalidate-saml-token()
+    else ()
+    ,
+    <dispatch> ... </dispatch>
+    )
+else
+
+(: if no valid token, redirect to SAML auth :)
+if (exsaml:is-enabled() and not(exsaml:check-valid-saml-token()))
+then (
+    let $debug := exsaml:log('info', "controller: no valid token, redirect to SAML auth")
+    let $return-path := "/exist/apps" || $exist:controller || $exist:path
+    return
+        <dispatch xmlns="http://exist.sourceforge.net/NS/exist">
+            <redirect url="{exsaml:build-authnreq-redir-url($return-path, $realm)}">
+                <set-header name="Cache-Control" value="no-cache, no-store" />
+                <set-header name="Pragma" value="no-cache" />
+            </redirect>
+        </dispatch>
+    )
 
 else (
     (: your controller code here :)
