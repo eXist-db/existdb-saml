@@ -462,13 +462,20 @@ declare %private function exsaml:store-authnreqid-privileged($id as xs:string, $
         xmldb:store($collection, $id, <reqid>{$instant}</reqid>)
 };
 
-declare %private function exsaml:ensure-authnreqid-collection() as xs:string {
+(:~
+ : Ensure the collection for issued request IDs exist with correct permissions.
+ :
+ : @return collection pathname as string
+ :)
+declare function exsaml:ensure-authnreqid-collection() as xs:string {
     let $collection := $exsaml:saml-coll-reqid-base || '/' || $exsaml:saml-coll-reqid-name
     let $_ :=
         if (not(xmldb:collection-available($collection)))
         then (
             exsaml:log("info", "---", "creating collection " || $collection),
             xmldb:create-collection($exsaml:saml-coll-reqid-base, $exsaml:saml-coll-reqid-name),
+	    sm:chown(xs:anyURI($collection), $exsaml:exsaml-user),
+	    sm:chgrp(xs:anyURI($collection), $exsaml:exsaml-user),
 	    sm:chmod(xs:anyURI($collection), "rwx------")
         )
         else ()
@@ -484,10 +491,12 @@ declare %private function exsaml:check-authnreqid($reqid as xs:string) as xs:str
 };
 
 declare %private function exsaml:check-authnreqid-privileged($reqid as xs:string) as xs:string {
-    if (exists(doc($exsaml:saml-coll-reqid||"/"||$reqid))
-        and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))
-    then $reqid
-    else ""
+    let $collection := $exsaml:saml-coll-reqid-base || '/' || $exsaml:saml-coll-reqid-name
+    return
+        if (exists(doc($collection || "/" || $reqid))
+            and empty(xmldb:remove($collection, $reqid)))
+        then $reqid
+        else ""
 };
 
 

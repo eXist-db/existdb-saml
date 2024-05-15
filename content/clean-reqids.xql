@@ -4,7 +4,7 @@ import module namespace exsaml="http://exist-db.org/xquery/exsaml" at "/db/apps/
 import module namespace functx = "http://www.functx.com";
 
 declare function local:clean-reqids() {
-    let $reqid-col := "/db/apps/existdb-saml/saml-request-ids"
+    let $reqid-col := exsaml:ensure-authnreqid-collection()
     let $reqids := for $reqid in collection($reqid-col)/reqid
                         let $duration := xs:dateTime(current-dateTime()) - xs:dateTime($reqid)
                         return
