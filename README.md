@@ -271,10 +271,8 @@ File `config-exsaml.xml`, element `config/sso-users` looks like this (assuming `
 File `sso-users.xml` would look like this (setting group membership for all users to `acme`):
 ```
 <sso-users>
-    <user>
-        <default-realm user="default-user" group="acme">
-            <groups/>
-        </default-realm>
+    <user name="default-user" realm="default-realm" group="acme">
+        <groups/>
     </user>
 </sso-users>
 ```
@@ -312,27 +310,21 @@ default user for this realm. Note all user definition refer to realm "acme-repor
     <!-- users jack and jill are editors with write permissions, being a member of group
          "report-editors". They are also a member of the general "acme" group that everyone
          else is a member of. -->
-    <user>
-        <acme-reports user="jack@example.org" group="report-editors">
-            <groups>
-                <group>acme</group>
-            </groups>
-        </acme-reports>
+    <user name="jack@example.org" realm="acme-reports" group="report-editors">
+        <groups>
+            <group>acme</group>
+        </groups>
     </user>
-    <user>
-        <acme-reports user="jill@example.org" group="report-editors">
-            <groups>
-                <group>acme</group>
-            </groups>
-        </acme-reports>
+    <user name="jill@example.org" realm="acme-reports" group="report-editors">
+        <groups>
+            <group>acme</group>
+        </groups>
     </user>
     <!-- every other authenticated user is mapped to the default user for this realm.
          That means, member of the (read-only) "acme" group, but not member of the
          (read-and-write) "report-editors" group. -->
-    <user>
-        <acme-reports user="default-user" group="acme">
-            <groups/>
-        </acme-reports>
+    <user name="default-user" realm="acme-reports" group="acme">
+        <groups/>
     </user>
 </sso-users>
 ```
@@ -356,42 +348,36 @@ As before, realms are named after the app they relate to.
 <sso-users>
     <!-- user jack is an editor with write permissions for both "acme-reports" and
          "acme-research", being a member of both groups, and also the general "acme" group. -->
-    <user>
-        <acme-reports user="jack@example.org" group="report-editors">
-            <groups>
-                <group>acme</group>
-            </groups>
-        </acme-reports>
-        <acme-research user="jack@example.org" group="research-editors">
-            <groups>
-                <group>acme</group>
-            </groups>
-        </acme-research>
+    <user name="jack@example.org" realm="acme-reports" group="report-editors">
+        <groups>
+            <group>acme</group>
+        </groups>
     </user>
-    <!-- user jill is an editor with write permissions for both "acme-reports", and the "acme" group. -->
-    <user>
-        <acme-reports user="jill@example.org" group="report-editors">
-            <groups>
-                <group>acme</group>
-            </groups>
-        </acme-reports>
+    <user name="jack@example.org" realm="acme-research" group="research-editors">
+        <groups>
+            <group>acme</group>
+        </groups>
     </user>
-    <!-- user james is an editor with write permissions for "acme-research", and the "acme" group. -->
-    <user>
-        <acme-research user="james@example.org" group="research-editors">
-            <groups>
-                <group>acme</group>
-            </groups>
-        </acme-research>
+    <!-- user jill is an editor with write permissions for "acme-reports", and member of the "acme" group. -->
+    <user name="jill@example.org" realm="acme-reports" group="report-editors">
+        <groups>
+            <group>acme</group>
+        </groups>
     </user>
-    <!-- every other authenticated user is mapped to the default user for each realm. -->
-    <user>
-        <acme-reports user="default-user" group="acme">
-            <groups/>
-        </acme-reports>
-        <acme-research user="default-user" group="acme">
-            <groups/>
-        </acme-research>
+    <!-- user james is an editor with write permissions for "acme-research", and member of the "acme" group. -->
+    <user name="james@example.org" realm="acme-research" group="research-editors">
+        <groups>
+            <group>acme</group>
+        </groups>
+    </user>
+    <!-- every other authenticated user is mapped to the default user for this realm.
+         That means, member of the (read-only) "acme" group, but not member of the
+         (read-and-write) "report-editors" group. -->
+    <user name="default-user" realm="acme-reports" group="acme">
+        <groups/>
+    </user>
+    <user name="default-user" realm="acme-research" group="acme">
+        <groups/>
     </user>
 </sso-users>
 ```

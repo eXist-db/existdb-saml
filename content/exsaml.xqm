@@ -412,12 +412,12 @@ declare %private function exsaml:verify-assertion-signature($id as xs:string, $a
    create them on the fly.  This allows to store per-user preferences and
    settings. :)
 declare %private function exsaml:ensure-saml-user($id as xs:string, $nameid as xs:string, $realm as xs:string) {
-    let $allusers := doc($exsaml:sso-userdata)/sso-users/user/*[name() = $realm]
+    let $allusers := doc($exsaml:sso-userdata)/sso-users/user[@realm eq $realm]
     let $userdata :=
-        if ($allusers[@user eq $nameid]) then (
-            $allusers[@user eq $nameid]
+        if ($allusers[@name eq $nameid]) then (
+            $allusers[@name eq $nameid]
         ) else (
-            $allusers[@user eq 'default-user']
+            $allusers[@name eq 'default-user']
         )
     let $user-exists := exsaml:suexec(sm:user-exists#1, [$nameid])
 
@@ -426,11 +426,11 @@ declare %private function exsaml:ensure-saml-user($id as xs:string, $nameid as x
             let $log := exsaml:log("notice", $id, "create new user account " || $nameid || ", group " || data($userdata/@group))
             let $pass := exsaml:create-user-password($nameid)
             return
-                exsaml:suexec(sm:create-account#4, [$nameid, $pass, data($userdata/@group), data($userdata/other-groups/group)])
+                exsaml:suexec(sm:create-account#4, [$nameid, $pass, data($userdata/@group), data($userdata/groups)])
         ) else (
             (: user exists, ensure group membership :)
             let $usergroups := exsaml:suexec(sm:get-user-groups#1, [$nameid])
-            for $g in data($userdata/other-groups/group)
+            for $g in data($userdata/groups)
             return
                 if (not($g = $usergroups)) then (
                     let $log := exsaml:log("notice", $id, "add user " || $nameid || "to group " || $g)
