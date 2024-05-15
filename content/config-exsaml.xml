@@ -72,7 +72,7 @@
     <!--   @default-realm: default SSO realm if not specified -->
     <sso-users create-users="false"
                data="/db/apps/existdb-saml/content/sso-users.xml"
-               default-realm="REALM-NAME-1"/>
+               default-realm="default-realm"/>
 
     <!-- fake IDP for debugging, if no real IDP is available -->
     <!-- Should be empty for production use.  If this is non-empty AND
