@@ -282,7 +282,7 @@ declare %private function exsaml:validate-saml-response($resp as node()) as elem
 };
 
 (: validate a SAML assertion :)
-declare %private function exsaml:validate-saml-assertion($id as xs:string, $assertion as element(saml:Assertion) as element(exsaml:funcret) {
+declare %private function exsaml:validate-saml-assertion($id as xs:string, $assertion as element(saml:Assertion)) as element(exsaml:funcret) {
     if (empty($assertion))
     then (
         let $log := exsaml:log("notice", $id, "Error: Empty Assertion")
