@@ -1,7 +1,6 @@
 # existdb-saml - SAML v2.0 Implementation in XQuery
 
-**NOTE** You will need **eXist v4.4 or higher** to run this code (a required
-compression function has been added in that release).
+**NOTE** You will need **eXist v5.3.0 or higher** to run this code.
 
 ## Overview
 
@@ -18,8 +17,8 @@ This code is considered stable and production-ready. A slightly earlier
 version of this code runs in production on a large site, interfacing with a
 "PingFederate" SAML IDP installation.
 
-This code passed auditing and pen-testing by a third party on behalf of the
-customer.
+Version 1.0 of this code passed auditing and pen-testing by a third party on
+behalf of the customer.
 
 ## How to use (in simple terms)
 
@@ -61,18 +60,14 @@ The SAML protocol requires that both peers (SP and IDP) present and validate
 the identity of each other. Also, each peer needs to know the URI endpoint of
 the other side to redirect clients correctly.
 
-It is quite common that SAML responses from the IDP are signed using XML
-signature. The SAML standard mandates to validate XML signatures if they are
-present. In order to do this you need the X.509 certificate file from the IDP
-containing the public key needed to validate the signatures.
-
 ### Edit config-exsaml.xml file
 
 In the `<config>` element, set the `enabled` attribute to `true` to enable
-SAML.
+SAML. Optionally, set the `debug` attribute to `true` for more verbose
+logging.
 
 In the `<sp>` element, set your entity name (a namestring in URI format) and
-your endpoint URI (handled by your `controller.xql` file.
+your endpoint URI (handled by your `controller.xql` file).
 `fallback-relaystate` is only relevant if IDP-initiated SSO is enabled, it is
 the default landing page if an IDP-initiated SSO does not specify where the
 client should go.
