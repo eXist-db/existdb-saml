@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <meta xmlns="http://exist-db.org/xquery/repo">
   <description>@description@</description>
+  <author>Olaf Schreck (olaf@existsolutions.com)</author>
   <website>@website@</website>
   <status>@status@</status>
-  <license>LGPL 2.1</license>
+  <license>GNU LGPL 2.1</license>
   <copyright>true</copyright>
   <type>library</type>
   <target>existdb-saml</target>
   <prepare />
   <finish>post-install.xql</finish>
   <cleanup>cleanup.xql</cleanup>
-  <permissions user="exsaml" group="dba" password="exsamlpass" mode="rwxrwxr-x"/>
+  <permissions user="exsaml" group="dba" password="exsaml" mode="rwxrwxr-x"/>
 </meta>

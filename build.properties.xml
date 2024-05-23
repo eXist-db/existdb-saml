@@ -2,8 +2,8 @@
 <root>
   <app>
     <name>existdb-saml</name>
-    <description>SAML implementation for existdb</description>
-    <version>1.6.3</version>
+    <description>SAML v2.0 implementation in XQuery for eXist-db</description>
+    <version>2.0.0-RC1</version>
     <url>http://exist-db.org/xquery/exsaml</url>
     <status>beta</status>
     <permissions>rwxr-xr-x</permissions>
