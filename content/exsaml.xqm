@@ -430,7 +430,7 @@ declare %private function exsaml:ensure-saml-user($id as xs:string, $nameid as x
         ) else (
             (: user exists, ensure group membership :)
             let $usergroups := exsaml:suexec(sm:get-user-groups#1, [$nameid])
-            for $g in data($userdata/groups/*)
+            for $g in (data($userdata/@group), data($userdata/groups/*))
             return
                 if (not($g = $usergroups)) then (
                     let $log := exsaml:log("notice", $id, "add user " || $nameid || "to group " || $g)
