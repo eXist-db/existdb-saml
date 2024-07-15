@@ -278,7 +278,7 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
                         let $u :=
                                 if ($exsaml:create-user = "true" and xs:integer($auth/@code) ge 0)
                                 then
-                                    let $pass := exsaml:create-user-password($auth/@nameid, $config)
+                                    let $pass := exsaml:create-user-password($auth/@nameid)
                                     let $_ := exsaml:ensure-saml-user($cid, $auth/@nameid, $pass)
                                     let $log-in := xmldb:login("/db", $auth/@nameid, $pass, true())
                                     let $_ := exsaml:log("info", $cid, "login result: " || $log-in || ", " || fn:serialize(sm:id()))
