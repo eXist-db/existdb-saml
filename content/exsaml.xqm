@@ -148,7 +148,7 @@ declare function exsaml:build-authnreq-redir-url($cid as xs:string, $relaystate 
  : @param $cid An id used for correlating log messages.
  :)
 declare %private function exsaml:build-saml-authnreq($cid as xs:string) as element(samlp:AuthnRequest) {
-    let $reqid := exsaml:gen-id($cid)
+    let $reqid := exsaml:generate-saml-id($cid)
     let $instant := fn:current-dateTime()
     let $store := exsaml:store-authnreqid($cid, $reqid, $instant)
     return
