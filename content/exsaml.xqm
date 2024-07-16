@@ -216,7 +216,7 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
     let $saml-resp := request:get-parameter("SAMLResponse", "error")
 
     let $resp :=
-            if ($saml-resp = "error" or fn:empty($resp/samlp:Response))
+            if ($saml-resp = "error")
             then
                 $saml-resp
             else
@@ -231,7 +231,7 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
 
     return
 
-        if ($resp = "error")
+        if ($resp = "error" or fn:empty($resp/samlp:Response))
         then
             error($exsaml:ERROR, $cid || ": Empty SAML Response: ", "No SAML response data has been provided")
         else
