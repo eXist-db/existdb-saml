@@ -447,10 +447,16 @@ declare %private function exsaml:validate-saml-assertion($cid as xs:string, $ass
  : @param true if the SAML Request ID is valid, false otherwise. 
  :)
 declare %private function exsaml:check-authnreqid($cid as xs:string, $reqid as xs:string) as xs:boolean {
-    let $log := exsaml:log("info", $cid, "verifying SAML request: reqid: " || $reqid)
+    let $stored-saml-request-id-path := $exsaml:saml-coll-reqid || "/" || $reqid
+    let $log := exsaml:log("info", $cid, "verifying SAML request: reqid: " || $reqid || " by looking for path: " || $stored-saml-request-id-path)
     return
-        system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
-                exists(doc($exsaml:saml-coll-reqid || "/" || $reqid)) and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))
+        let $stored-saml-request-id-exists := system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
+                exists(doc($stored-saml-request-id-path)) and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid))
+        )
+        return
+            let $log := exsaml:log("trace", $cid, "verifying SAML request: path: " || $stored-saml-request-id-path || " exists: " || $stored-saml-request-id-exists)
+            return
+                $stored-saml-request-id-exists
 };
 
 (:~
