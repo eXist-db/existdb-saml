@@ -124,7 +124,7 @@ declare function exsaml:info($cid as xs:string) {
 declare function exsaml:build-authnreq-redir-url($cid as xs:string, $relaystate as xs:string) {
     let $log := exsaml:log("info", $cid, "building SAML auth request redir-url; relaystate: " || $relaystate)
     let $req := exsaml:build-saml-authnreq($cid)
-    let $log := exsaml:log("debug", $cid, "build-authnreq-redir-url; req: " || $req)
+    let $log := exsaml:log("debug", $cid, "build-authnreq-redir-url; req: " || fn:serialize($req))
 
     (: deflate and base64 encode request :)
     let $ser := fn:serialize($req)
