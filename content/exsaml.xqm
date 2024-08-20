@@ -193,11 +193,13 @@ declare %private function exsaml:store-authnreqid-as-exsol-user($cid as xs:strin
 declare %private function exsaml:store-authnreqid($cid as xs:string, $reqid as xs:string, $instant as xs:dateTime) {
     let $log := exsaml:log("info", $cid, "storing SAML request id: " || $reqid || ", date: " || $instant)
     return
-        system:as-user(
-                $exsaml:exsaml-user,
-                $exsaml:exsaml-pass,
+        let $stored-saml-request-id-path := system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
                 exsaml:store-authnreqid-as-exsol-user($cid, $reqid, $instant)
         )
+        return
+            let $log := exsaml:log("trace", $cid, "storing SAML request id: stored at path: " || $stored-saml-request-id-path)
+            return
+                $stored-saml-request-id-path
 };
 
 (: ==== FUNCTIONS TO PROCESS AND VALIDATE A SAML AUTHN RESPONSE ==== :)
