@@ -202,6 +202,30 @@ declare %private function exsaml:store-authnreqid($cid as xs:string, $reqid as x
                 $stored-saml-request-id-path
 };
 
+(:~
+ : Remove a previously stored request id from a collection.
+ :
+ : @param $cid An id used for correlating log messages.
+ : @param $resp The SAML Response.
+ :)
+declare %private function exsaml:remove-authnreqid($cid as xs:string, $resp as element(samlp:Response)) as empty-sequence() {
+    let $resp-in-response-to as xs:string? := $resp/@InResponseTo ! xs:string(.)
+    let $as-in-response-to as xs:string? := $resp/saml:Assertion/saml:Subject/saml:SubjectConfirmation/saml:SubjectConfirmationData/@InResponseTo ! xs:string(.)
+    let $reqid as xs:string? := fn:head(($resp-in-response-to, $as-in-response-to))
+
+    let $stored-saml-request-id-path as xs:string? := $reqid ! ($exsaml:saml-coll-reqid || "/" || .)
+
+    let $_ := system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
+            if (fn:doc-available($stored-saml-request-id-path))
+            then
+                  let $_ := exsaml:log("trace", $cid, "removing stored SAML request id: from stored at path: " || $stored-saml-request-id-path)
+                  return
+                      xmldb:remove($exsaml:saml-coll-reqid, $reqid)
+            else()
+    )
+    return ()
+};
+
 (: ==== FUNCTIONS TO PROCESS AND VALIDATE A SAML AUTHN RESPONSE ==== :)
 
 (:~
@@ -294,13 +318,19 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
                                     exsaml:set-saml-token($cid, $auth/@nameid, $auth/@authndate)
                                 else ()
 
+                        (: Cleanup the persisted authnreqid :)
+                        let $_ := exsaml:remove-authnreqid($cid, $resp/samlp:Response)
+
                         let $debug := exsaml:log("info", $cid, "finished exsaml:process-saml-response-post. auth: ")
                         let $debug := exsaml:log("info", $cid, fn:serialize($auth))
                         return
                             $auth
 
             } catch * {
-                <error cid="{$cid}">Caught error {$err:code}: {$err:description}. Data: {$err:value}</error>
+                (: NOTE(AR) As an error occured at some point, we still need to ensure the persisted authnreqid is cleaned up :)
+                let $_ := exsaml:remove-authnreqid($cid, $resp/samlp:Response)
+                return
+                    <error cid="{$cid}">Caught error {$err:code}: {$err:description}. Data: {$err:value}</error>
             }
 };
 
@@ -453,10 +483,7 @@ declare %private function exsaml:check-authnreqid($cid as xs:string, $reqid as x
     let $log := exsaml:log("info", $cid, "verifying SAML request: reqid: " || $reqid || " by looking for path: " || $stored-saml-request-id-path)
     return
         let $stored-saml-request-id-exists := system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
-                let $exists := exists(doc($stored-saml-request-id-path))
-                let $_ := xmldb:remove($exsaml:saml-coll-reqid, $reqid)
-                return
-                    $exists
+                fn:doc-available($stored-saml-request-id-path)
         )
         return
             let $log := exsaml:log("trace", $cid, "verifying SAML request: path: " || $stored-saml-request-id-path || " exists: " || $stored-saml-request-id-exists)
