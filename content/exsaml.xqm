@@ -148,7 +148,7 @@ declare function exsaml:build-authnreq-redir-url($cid as xs:string, $relaystate 
  : @param $cid An id used for correlating log messages.
  :)
 declare %private function exsaml:build-saml-authnreq($cid as xs:string) as element(samlp:AuthnRequest) {
-    let $reqid := exsaml:gen-id($cid)
+    let $reqid := exsaml:generate-saml-id($cid)
     let $instant := fn:current-dateTime()
     let $store := exsaml:store-authnreqid($cid, $reqid, $instant)
     return
@@ -216,7 +216,7 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
     let $saml-resp := request:get-parameter("SAMLResponse", "error")
 
     let $resp :=
-            if ($saml-resp = "error" or fn:empty($resp/samlp:Response))
+            if ($saml-resp = "error")
             then
                 $saml-resp
             else
@@ -231,7 +231,7 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
 
     return
 
-        if ($resp = "error")
+        if ($resp = "error" or fn:empty($resp/samlp:Response))
         then
             error($exsaml:ERROR, $cid || ": Empty SAML Response: ", "No SAML response data has been provided")
         else
@@ -278,7 +278,7 @@ declare function exsaml:process-saml-response-post($cid as xs:string) {
                         let $u :=
                                 if ($exsaml:create-user = "true" and xs:integer($auth/@code) ge 0)
                                 then
-                                    let $pass := exsaml:create-user-password($auth/@nameid, $config)
+                                    let $pass := exsaml:create-user-password($auth/@nameid)
                                     let $_ := exsaml:ensure-saml-user($cid, $auth/@nameid, $pass)
                                     let $log-in := xmldb:login("/db", $auth/@nameid, $pass, true())
                                     let $_ := exsaml:log("info", $cid, "login result: " || $log-in || ", " || fn:serialize(sm:id()))
@@ -340,7 +340,7 @@ declare %private function exsaml:validate-saml-response($cid as xs:string, $resp
         (:            <exsaml:funcret res="-4" msg="failed to verify response signature" cid="{$cid}"/> :)
 
         (: verify Response/@InResponseTo is present in the SAML response :)
-        else if (fn:exists($reqid) and not(exsaml:check-authnreqid($reqid)))
+        else if (fn:exists($reqid) and not(exsaml:check-authnreqid($cid, $reqid)))
         then
             <exsaml:funcret res="-7" msg="did not send this SAML request" data="{$reqid}"/>
 
