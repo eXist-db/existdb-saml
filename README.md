@@ -133,13 +133,14 @@ import module namespace exsaml="http://exist-db.org/xquery/exsaml" at 'xmldb:///
    that gets auto-submitted by the user's browser, back to the SP (eXist) :)
 declare option exist:serialize "method=html media-type=text/html indent=no";
 
+declare variable $exsaml-config := exsaml:parse-xml-config(doc("/db/apps/your-app/config-exsaml.xml"));
 declare variable $cid := exsaml:generate-correlation-id();
 
 (: handle SP endpoint to process SAML response in HTTP POST :)
 if ($exist:path = "/SAML2SP")
 then
     let $log := exsaml:log('info', $cid, "SAML2SP: processing SAML response")
-    let $status := exsaml:process-saml-response-post()
+    let $status := exsaml:process-saml-response-post($exsaml-config)
     let $log := exsaml:log('debug', $cid, "endpoint SAML2SP; status: " || $status/@code)
     return
         if ($status/@code >= 0) then
@@ -157,21 +158,21 @@ then
 else if ($exist:path = '/logout')
 then
     let $_ :=
-            if (exsaml:is-enabled($cid))
+            if (exsaml:is-enabled($cid, $exsaml-config))
             then
-                exsaml:invalidate-saml-token($cid)
+                exsaml:invalidate-saml-token($cid, $exsaml-config)
             else ()
     return
         <dispatch> ... </dispatch>
 
 (: if no valid token, redirect to SAML auth :)
-else if (exsaml:is-enabled($cid) and not(exsaml:check-valid-saml-token($cid)))
+else if (exsaml:is-enabled($cid, $exsaml-config) and not(exsaml:check-valid-saml-token($cid, $exsaml-config)))
 then
     let $debug := exsaml:log('info', $cid, "controller: no valid token, redirect to SAML auth")
     let $return-path := "/exist/apps" || $exist:controller || $exist:path
     return
         <dispatch xmlns="http://exist.sourceforge.net/NS/exist">
-            <redirect url="{exsaml:build-authnreq-redir-url($cid, $return-path)}">
+            <redirect url="{exsaml:build-authnreq-redir-url($cid, $return-path, $exsaml-config)}">
                 <set-header name="Cache-Control" value="no-cache, no-store" />
                 <set-header name="Pragma" value="no-cache" />
             </redirect>
