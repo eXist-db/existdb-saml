@@ -124,7 +124,7 @@ declare function exsaml:info($cid as xs:string) {
 declare function exsaml:build-authnreq-redir-url($cid as xs:string, $relaystate as xs:string) {
     let $log := exsaml:log("info", $cid, "building SAML auth request redir-url; relaystate: " || $relaystate)
     let $req := exsaml:build-saml-authnreq($cid)
-    let $log := exsaml:log("debug", $cid, "build-authnreq-redir-url; req: " || $req)
+    let $log := exsaml:log("debug", $cid, "build-authnreq-redir-url; req: " || fn:serialize($req))
 
     (: deflate and base64 encode request :)
     let $ser := fn:serialize($req)
@@ -193,11 +193,13 @@ declare %private function exsaml:store-authnreqid-as-exsol-user($cid as xs:strin
 declare %private function exsaml:store-authnreqid($cid as xs:string, $reqid as xs:string, $instant as xs:dateTime) {
     let $log := exsaml:log("info", $cid, "storing SAML request id: " || $reqid || ", date: " || $instant)
     return
-        system:as-user(
-                $exsaml:exsaml-user,
-                $exsaml:exsaml-pass,
+        let $stored-saml-request-id-path := system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
                 exsaml:store-authnreqid-as-exsol-user($cid, $reqid, $instant)
         )
+        return
+            let $log := exsaml:log("trace", $cid, "storing SAML request id: stored at path: " || $stored-saml-request-id-path)
+            return
+                $stored-saml-request-id-path
 };
 
 (: ==== FUNCTIONS TO PROCESS AND VALIDATE A SAML AUTHN RESPONSE ==== :)
@@ -447,10 +449,19 @@ declare %private function exsaml:validate-saml-assertion($cid as xs:string, $ass
  : @param true if the SAML Request ID is valid, false otherwise. 
  :)
 declare %private function exsaml:check-authnreqid($cid as xs:string, $reqid as xs:string) as xs:boolean {
-    let $log := exsaml:log("info", $cid, "verifying SAML request: reqid: " || $reqid)
+    let $stored-saml-request-id-path := $exsaml:saml-coll-reqid || "/" || $reqid
+    let $log := exsaml:log("info", $cid, "verifying SAML request: reqid: " || $reqid || " by looking for path: " || $stored-saml-request-id-path)
     return
-        system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
-                exists(doc($exsaml:saml-coll-reqid || "/" || $reqid)) and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))
+        let $stored-saml-request-id-exists := system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
+                let $exists := exists(doc($stored-saml-request-id-path))
+                let $_ := xmldb:remove($exsaml:saml-coll-reqid, $reqid)
+                return
+                    $exists
+        )
+        return
+            let $log := exsaml:log("trace", $cid, "verifying SAML request: path: " || $stored-saml-request-id-path || " exists: " || $stored-saml-request-id-exists)
+            return
+                $stored-saml-request-id-exists
 };
 
 (:~
