@@ -665,6 +665,10 @@ declare %private function exsaml:gen-id() as xs:string {
  : @param $msg - a message string to log
  : @return boolean true
  :)
+declare function exsaml:log($level as xs:string, $msg as xs:string) as xs:boolean {
+    exsaml:log($level, "--", $msg)
+};
+
 declare function exsaml:log($level as xs:string, $id as xs:string, $msg as xs:string) as xs:boolean {
     let $l := util:log($level, "exsaml: [" || $id || "] " || $msg)
     return true()
