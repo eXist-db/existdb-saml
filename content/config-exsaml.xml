@@ -40,7 +40,7 @@
 
     <!-- crypto settings -->
     <!--   @hmac-key: server-side secret key for HMACs -->
-    <!--   @hmac-alg: HMAC algorithm -->
+    <!-- The HMAC algorithm is not configurable, it is fixed at HMAC-SHA-256. -->
     <crypto hmac-key="my secret key"/>
 
     <!-- token settings.  @valid-mins is important here.

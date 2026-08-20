@@ -10,7 +10,7 @@
 
   <target name="copy">
     <copy todir="${build.dir}/${app.name}-${app.version}">
-      <fileset dir="${basedir}" excludes="${build.dir},README.md,build.xml,build.properties.xml,.idea/,.gitignore,.editorconfig,.existdb.json,expath-pkg.xml.tmpl,repo.xml.tmpl,bower.json,bower_components/**,node_modules/**,package.json,local.node-exist.json,gulpfile.js"/>
+      <fileset dir="${basedir}" excludes="${build.dir},README.md,CLAUDE.md,build.xml,build.properties.xml,.idea/,.gitignore,.editorconfig,.existdb.json,expath-pkg.xml.tmpl,repo.xml.tmpl,bower.json,bower_components/**,node_modules/**,package.json,local.node-exist.json,gulpfile.js"/>
     </copy>
     <copy todir="${build.dir}/${app.name}-${app.version}" overwrite="true" verbose="true">
       <fileset file="expath-pkg.xml.tmpl"/>

@@ -73,8 +73,8 @@ the default landing page if an IDP-initiated SSO does not specify where the
 client should go.
 
 In the `<idp>` element, set the `entity` name and `endpoint` URI that was
-provided by your IDP peer. If the IDP sends XML signed responses, specify
-`certfile` with the path to the X.509 certificate.
+provided by your IDP peer. XML signatures on IDP responses and assertions are
+validated by default; set `validate-signatures` to false to skip validation.
 To enable IDP-initiated SSO (default off) set `accept-unsolicited` to true. To
 force IDP-initiated clients to a certain URI, specify this URI in
 `force-relaystate`.
@@ -91,15 +91,19 @@ expired, another SAML roundtrip will happen between SP and IDP.
 In the `<exsaml-creds>` element, set a password for the privileged `exsaml`
 user. You also need to assign this password to `exsaml` user, see below.
 
-If you need to store user specific settings such as the preferred language,
-you may want to set `create` to `true` in the `<dynamic-users>` element. By
-default, users are not created in eXist DB because usernames and passwords
-are kept at the IDP.
+In the `<sso-users>` element, `data` points at the `sso-users.xml` file that
+assigns group membership to authenticated users, and `default-realm` names the
+authentication realm to use when none is given. See "Using existdb-saml with
+Multiple Apps" below for details.
 
-A SAML IDP may send additional data as SAML attribute assertions, e.g. to
-assign group membership for an authenticated user, as shown in the
-`<group-attribute>` element. Note this only works if the IDP is configured
-to send these attributes.
+If you need to store user specific settings such as the preferred language,
+set `create-users` to `true` in the same `<sso-users>` element. By default,
+users are not created in eXist DB because usernames and passwords are kept at
+the IDP.
+
+Earlier versions could also derive group membership from SAML attribute
+assertions sent by the IDP, via a `<group-attribute>` element; this was removed
+in v2.0.
 
 The `<fake-idp>` element may be used for debugging if no "real" IDP is 
 available yet. This element should be empty for production use.
