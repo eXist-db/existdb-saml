@@ -450,7 +450,7 @@ declare %private function exsaml:check-authnreqid($cid as xs:string, $reqid as x
     let $log := exsaml:log("info", $cid, "verifying SAML request: reqid: " || $reqid)
     return
         system:as-user($exsaml:exsaml-user, $exsaml:exsaml-pass,
-                exists(doc($exsaml:saml-coll-reqid || "/" || $reqid)) and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))
+                doc-available($exsaml:saml-coll-reqid || "/" || $reqid) and empty(xmldb:remove($exsaml:saml-coll-reqid, $reqid)))
 };
 
 (:~
